@@ -90,6 +90,12 @@ class Metronome: ObservableObject {
         isTicking = true
         tickCount = 0
         lastSpokenTime = -1
+
+        // Play an immediate tick when starting in beat mode
+        if !useSolfegeNames {
+            playTickSound()
+        }
+
         updateTimer()
     }
 
