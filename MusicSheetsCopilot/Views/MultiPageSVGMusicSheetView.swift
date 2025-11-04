@@ -1,10 +1,3 @@
-//
-//  MultiPageSVGMusicSheetView.swift
-//  MusicSheetsCopilot
-//
-//  Created on November 4, 2025.
-//
-
 import SwiftUI
 import WebKit
 
@@ -75,7 +68,6 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
         // Only reload HTML if pages changed (not on every time update)
         if context.coordinator.currentPages != svgPages {
             let html = createHTML(svgPages: svgPages, timingData: timingData)
-            print("CombinedSVGWebViewMac - Loading \(svgPages.count) page(s)")
             webView.loadHTMLString(html, baseURL: nil)
             context.coordinator.currentPages = svgPages
         }
@@ -108,11 +100,9 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
             guard message.name == "noteClickHandler",
                   let noteId = message.body as? String else { return }
 
-            print("Note clicked: \(noteId)")
 
             // Find the start time for this note
             if let startTime = verovioService?.getNoteStartTime(noteId) {
-                print("Seeking to time: \(startTime)s")
                 midiPlayer?.seek(to: startTime)
             }
         }
@@ -331,11 +321,9 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
             guard message.name == "noteClickHandler",
                   let noteId = message.body as? String else { return }
 
-            print("Note clicked: \(noteId)")
 
             // Find the start time for this note
             if let startTime = verovioService?.getNoteStartTime(noteId) {
-                print("Seeking to time: \(startTime)s")
                 midiPlayer?.seek(to: startTime)
             }
         }
@@ -481,18 +469,3 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
     }
 }
 #endif
-
-#Preview {
-    MultiPageSVGMusicSheetView(svgPages: [
-        """
-        <svg xmlns="http://www.w3.org/2000/svg" width="200" height="100">
-            <text x="100" y="50" text-anchor="middle" font-size="20">Page 1</text>
-        </svg>
-        """,
-        """
-        <svg xmlns="http://www.w3.org/2000/svg" width="200" height="100">
-            <text x="100" y="50" text-anchor="middle" font-size="20">Page 2</text>
-        </svg>
-        """
-    ], timingData: "[]", midiPlayer: MIDIPlayer())
-}

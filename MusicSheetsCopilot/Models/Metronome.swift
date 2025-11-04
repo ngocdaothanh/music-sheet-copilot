@@ -1,8 +1,3 @@
-// Metronome.swift
-// MusicSheetsCopilot
-//
-// Provides a metronome that ticks in sync with the current tempo.
-
 import Foundation
 import AVFoundation
 
@@ -169,7 +164,6 @@ class Metronome: ObservableObject {
             audioPlayer?.prepareToPlay()
             audioPlayer?.play()
         } catch {
-            print("Failed to play metronome tick: \(error)")
         }
     }
 

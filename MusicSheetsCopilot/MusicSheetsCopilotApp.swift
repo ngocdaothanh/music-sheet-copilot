@@ -1,10 +1,3 @@
-//
-//  MusicSheetsCopilotApp.swift
-//  MusicSheetsCopilot
-//
-//  Created on November 4, 2025.
-//
-
 import SwiftUI
 
 @main

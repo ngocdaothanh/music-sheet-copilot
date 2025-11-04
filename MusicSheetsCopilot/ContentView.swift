@@ -1,10 +1,3 @@
-//
-//  ContentView.swift
-//  MusicSheetsCopilot
-//
-//  Created on November 4, 2025.
-//
-
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -368,7 +361,6 @@ struct ContentView: View {
     }
 
     private func loadMusicXML(from url: URL) {
-        print("loadMusicXML")
         errorMessage = nil
 
         do {
@@ -377,32 +369,24 @@ struct ContentView: View {
             // Check if this is a compressed .mxl file
             let fileExtension = url.pathExtension.lowercased()
             if fileExtension == "mxl" {
-                print("Decompressing .mxl file...")
                 data = try MXLDecompressor.decompress(data)
-                print("Successfully decompressed .mxl file")
             }
 
             // Render all pages with Verovio
             let pages = try verovioService.renderAllPages(data: data)
-            print("ContentView received \(pages.count) page(s)")
             svgPages = pages
 
             // Get timing information for accurate note highlighting
             let timing = verovioService.getTimingMap()
             timingData = timing
-            print("Timing data length: \(timing.count) chars")
-            print("Timing data preview (first 500 chars): \(String(timing.prefix(500)))")
 
             // Get MIDI data and load into player
             let midiString = verovioService.getMIDI()
             if let midiData = Data(base64Encoded: midiString) {
                 try midiPlayer.loadMIDI(data: midiData)
-                print("MIDI loaded successfully")
                 // Set metronome BPM from VerovioService if available
                 let bpm = verovioService.getTempoBPM() ?? 120.0
                 metronome.bpm = bpm
-            } else {
-                print("Failed to decode MIDI data from base64")
             }
 
             // Extract title from filename if needed
@@ -414,11 +398,5 @@ struct ContentView: View {
             errorMessage = "Failed to render MusicXML: \(error.localizedDescription)"
             svgPages = nil
         }
-    }
-}
-
-#Preview {
-    NavigationStack {
-        ContentView()
     }
 }

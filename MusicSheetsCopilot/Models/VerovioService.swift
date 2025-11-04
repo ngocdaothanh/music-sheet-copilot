@@ -1,10 +1,3 @@
-//
-//  VerovioService.swift
-//  MusicSheetsCopilot
-//
-//  Created on November 4, 2025.
-//
-
 import Foundation
 import VerovioToolkit
 
@@ -42,7 +35,6 @@ class VerovioService: ObservableObject {
             """
 
             if let parts = enabledParts, !parts.isEmpty {
-                let partsJson = parts.map { "\"\($0)\"" }.joined(separator: ",")
                 json += """
                 ,
                 "appXPathQuery": ["//score-part[@id='\(parts.first!)']"]
@@ -58,8 +50,6 @@ class VerovioService: ObservableObject {
         // Initialize the toolkit first
         toolkit = VerovioToolkit()
 
-        print("Verovio version: \(toolkit.getVersion())")
-        print("Default resource path: \(toolkit.getResourcePath())")
 
         // Try to find the actual Verovio data resources from the Swift package
         var foundResourcePath: String?
@@ -67,19 +57,16 @@ class VerovioService: ObservableObject {
         // Method 1: Check main bundle
         if let resourcePath = Bundle.main.path(forResource: "data", ofType: nil) {
             foundResourcePath = resourcePath
-            print("✓ Found resources in main bundle: \(resourcePath)")
         }
 
         // Method 2: Try to get the VerovioToolkit module bundle
         else if let frameworkBundle = Bundle(identifier: "org.rismch.verovio.VerovioToolkit") {
             if let resourcePath = frameworkBundle.path(forResource: "data", ofType: nil) {
                 foundResourcePath = resourcePath
-                print("✓ Found resources in VerovioToolkit bundle: \(resourcePath)")
             } else if let resourcePath = frameworkBundle.resourcePath {
                 let dataPath = (resourcePath as NSString).appendingPathComponent("data")
                 if FileManager.default.fileExists(atPath: dataPath) {
                     foundResourcePath = dataPath
-                    print("✓ Found resources at: \(dataPath)")
                 }
             }
         }
@@ -93,8 +80,6 @@ class VerovioService: ObservableObject {
                     let bravuraPath = (resourcePath as NSString).appendingPathComponent("Bravura")
                     if FileManager.default.fileExists(atPath: bravuraPath) {
                         foundResourcePath = resourcePath
-                        print("✓ Found Verovio resources in bundle: \(bundle.bundlePath)")
-                        print("  Resource path: \(resourcePath)")
                         break
                     }
                 }
@@ -115,23 +100,16 @@ class VerovioService: ObservableObject {
 
                     if FileManager.default.fileExists(atPath: checkoutsPath) {
                         foundResourcePath = checkoutsPath
-                        print("✓ Found Verovio resources in DerivedData: \(checkoutsPath)")
                         break
                     }
                 }
             } catch {
-                print("  Could not search DerivedData: \(error)")
             }
         }
 
         // Set the resource path if we found it
         if let resourcePath = foundResourcePath {
-            let success = toolkit.setResourcePath(resourcePath)
-            print("Set resource path result: \(success)")
-            print("New resource path: \(toolkit.getResourcePath())")
-        } else {
-            print("⚠️ Could not locate Verovio data resources")
-            print("   Searched in all bundles - resources might not be properly bundled")
+            toolkit.setResourcePath(resourcePath)
         }
     }
 
@@ -152,18 +130,12 @@ class VerovioService: ObservableObject {
         // Store for tempo extraction
         lastLoadedMusicXML = musicXMLString
 
-        // Debug: Print first 200 chars of MusicXML
-        print("Loading MusicXML (first 200 chars):")
-        print(String(musicXMLString.prefix(200)))
-
         // Load the MusicXML
         let loadSuccess = toolkit.loadData(musicXMLString)
-        print("Verovio loadData result: \(loadSuccess)")
 
         guard loadSuccess else {
             // Try to get error information
             let errorLog = toolkit.getLog()
-            print("Verovio error log: \(errorLog)")
             throw VerovioError.loadFailed(message: errorLog)
         }
 
@@ -172,7 +144,6 @@ class VerovioService: ObservableObject {
 
         // Render to SVG (page 1, no XML declaration)
         let svg = toolkit.renderToSVG(1, false)
-        print("SVG output length: \(svg.count)")
 
         guard !svg.isEmpty else {
             throw VerovioError.renderFailed
@@ -213,17 +184,14 @@ class VerovioService: ObservableObject {
 
         // Load the MusicXML
         let loadSuccess = toolkit.loadData(musicXMLString)
-        print("Verovio loadData result: \(loadSuccess)")
 
         guard loadSuccess else {
             let errorLog = toolkit.getLog()
-            print("Verovio error log: \(errorLog)")
             throw VerovioError.loadFailed(message: errorLog)
         }
 
         // Get page count
         let pageCount = Int(toolkit.getPageCount())
-        print("Total pages: \(pageCount)")
 
         // Render all pages
         var svgPages: [String] = []
@@ -233,7 +201,6 @@ class VerovioService: ObservableObject {
                 throw VerovioError.renderFailed
             }
             svgPages.append(svg)
-            print("Rendered page \(pageNum), SVG length: \(svg.count)")
         }
 
         return svgPages
@@ -300,7 +267,6 @@ class VerovioService: ObservableObject {
 
         guard let data = timingJSON.data(using: .utf8),
               let timingArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
-            print("Failed to parse timing data")
             return []
         }
 
@@ -461,8 +427,6 @@ class VerovioService: ObservableObject {
         var filtered = musicXML
 
         for (partId, keepStaff) in keepStaffForPart {
-            print("Filtering part \(partId) to keep only staff \(keepStaff)")
-
             // Step 1: Remove notes from other staves FIRST (before removing backup)
             // This is critical because notes come before/after backup elements
             for staffNum in 1...10 {
@@ -471,13 +435,7 @@ class VerovioService: ObservableObject {
                     // Use a pattern that won't cross </note> boundaries
                     let notePattern = "<note(?:(?!</note>).)*<staff>\(staffNum)</staff>(?:(?!</note>).)*</note>"
                     if let regex = try? NSRegularExpression(pattern: notePattern, options: [.dotMatchesLineSeparators]) {
-                        let beforeCount = (filtered as NSString).length
                         filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
-                        let afterCount = (filtered as NSString).length
-                        let removedChars = beforeCount - afterCount
-                        if removedChars > 0 {
-                            print("Removed notes for staff \(staffNum): ~\(removedChars) characters")
-                        }
                     }
                 }
             }
@@ -485,19 +443,13 @@ class VerovioService: ObservableObject {
             // Step 2: Now remove backup elements (they're for multi-staff timing)
             let backupPattern = "<backup>.*?</backup>"
             if let regex = try? NSRegularExpression(pattern: backupPattern, options: [.dotMatchesLineSeparators]) {
-                let beforeCount = filtered.count
                 filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
-                let removedCount = (beforeCount - filtered.count) / 30 // rough estimate
-                if removedCount > 0 {
-                    print("Removed approximately \(removedCount) backup elements")
-                }
             }
 
             // Step 3: Update <staves> count to 1
             let stavesPattern = "(<part id=\"\(partId)\">.*?<attributes>.*?)<staves>\\d+</staves>"
             if let regex = try? NSRegularExpression(pattern: stavesPattern, options: [.dotMatchesLineSeparators]) {
                 filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "$1<staves>1</staves>")
-                print("Updated staves count to 1")
             }
 
             // Step 4: Remove clefs for other staves
@@ -512,24 +464,17 @@ class VerovioService: ObservableObject {
 
             // Step 5: Remove <staff>N</staff> tags from remaining notes (convert to single-staff)
             let staffTagPattern = "<staff>\(keepStaff)</staff>"
-            let beforeReplace = filtered.count
             filtered = filtered.replacingOccurrences(of: staffTagPattern, with: "")
-            print("Removed \((beforeReplace - filtered.count) / 20) staff tags (approx)")
 
             // Step 6: Remove clef number attribute from the remaining clef
             let clefNumberPattern = "(<clef )number=\"\(keepStaff)\""
             filtered = filtered.replacingOccurrences(of: clefNumberPattern, with: "$1", options: .regularExpression)
-
-            print("Filtering complete for part \(partId)")
         }
 
-        // Debug: Write filtered XML to temp file
-        let tempPath = FileManager.default.temporaryDirectory.appendingPathComponent("filtered_staff.xml")
-        try? filtered.write(to: tempPath, atomically: true, encoding: .utf8)
-        print("Filtered XML written to: \(tempPath.path)")
-
         return filtered
-    }    /// Filter MusicXML to only include enabled parts
+    }
+
+    /// Filter MusicXML to only include enabled parts
     private func filterParts(in musicXML: String, enabledIds: Set<String>) -> String {
         var filtered = musicXML
 

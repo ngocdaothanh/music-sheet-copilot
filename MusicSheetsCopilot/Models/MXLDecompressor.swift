@@ -1,10 +1,3 @@
-//
-//  MXLDecompressor.swift
-//  MusicSheetsCopilot
-//
-//  Created on November 4, 2025.
-//
-
 import Foundation
 import UniformTypeIdentifiers
 
@@ -106,7 +99,6 @@ class MXLDecompressor {
         let enumerator = fileManager.enumerator(at: directory, includingPropertiesForKeys: nil)
 
         while let fileURL = enumerator?.nextObject() as? URL {
-            let filename = fileURL.lastPathComponent.lowercased()
             let ext = fileURL.pathExtension.lowercased()
 
             // Look for .xml files (excluding META-INF files)

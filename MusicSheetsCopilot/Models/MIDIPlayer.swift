@@ -1,10 +1,3 @@
-//
-//  MIDIPlayer.swift
-//  MusicSheetsCopilot
-//
-//  Created on November 4, 2025.
-//
-
 import Foundation
 import AVFoundation
 import CoreMIDI
@@ -36,10 +29,7 @@ class MIDIPlayer: ObservableObject {
             duration = midiPlayer?.duration ?? 0
             midiData = data
             noteEvents = parseMIDINoteEvents(data: data)
-            print("MIDI loaded successfully - duration: \(duration)s")
-            print("Extracted \(noteEvents.count) note events")
         } catch {
-            print("Failed to create MIDI player: \(error)")
             throw error
         }
     }
@@ -48,7 +38,6 @@ class MIDIPlayer: ObservableObject {
     /// - Parameter fromPosition: Optional position to start from (in seconds). If nil, continues from current position.
     func play(fromPosition: TimeInterval? = nil) {
         guard let player = midiPlayer else {
-            print("No MIDI data loaded")
             return
         }
 
@@ -76,13 +65,11 @@ class MIDIPlayer: ObservableObject {
                 // Reset to beginning when finished
                 self.midiPlayer?.currentPosition = 0
                 self.currentTime = 0
-                print("MIDI playback finished")
             }
         }
 
         isPlaying = true
         startTimer()
-        print("MIDI playback started from position: \(player.currentPosition)s")
     }
 
     /// Pause playback
@@ -90,7 +77,6 @@ class MIDIPlayer: ObservableObject {
         midiPlayer?.stop()
         isPlaying = false
         stopTimer()
-        print("MIDI playback paused")
     }
 
     /// Stop playback and reset to beginning
@@ -114,7 +100,6 @@ class MIDIPlayer: ObservableObject {
     /// Seek to a specific time position (in seconds)
     func seek(to time: TimeInterval) {
         guard let player = midiPlayer else {
-            print("No MIDI data loaded")
             return
         }
 
@@ -128,7 +113,6 @@ class MIDIPlayer: ObservableObject {
 
         // Update current time immediately for UI
         currentTime = seekTime
-        print("Seeked to position: \(seekTime)s")
 
         if wasPlaying {
             // Small delay to ensure UI updates before resuming playback
@@ -256,7 +240,6 @@ class MIDIPlayer: ObservableObject {
                             self.timeSignature = (numerator, denominator)
                         }
                         foundTimeSignature = true
-                        print("Found time signature: \(numerator)/\(denominator)")
                     }
 
                     offset += Int(length)
