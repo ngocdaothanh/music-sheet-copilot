@@ -10,6 +10,7 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @State private var svgPages: [String]?
+    @State private var timingData: String?
     @State private var documentTitle: String = "Music Sheets"
     @State private var isImporting = false
     @State private var errorMessage: String?
@@ -19,8 +20,8 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if let pages = svgPages {
-                MultiPageSVGMusicSheetView(svgPages: pages, midiPlayer: midiPlayer)
+            if let pages = svgPages, let timing = timingData {
+                MultiPageSVGMusicSheetView(svgPages: pages, timingData: timing, midiPlayer: midiPlayer)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 VStack(spacing: 20) {
@@ -126,6 +127,12 @@ struct ContentView: View {
             let pages = try verovioService.renderAllPages(data: data)
             print("ContentView received \(pages.count) page(s)")
             svgPages = pages
+
+            // Get timing information for accurate note highlighting
+            let timing = verovioService.getTimingMap()
+            timingData = timing
+            print("Timing data length: \(timing.count) chars")
+            print("Timing data preview (first 500 chars): \(String(timing.prefix(500)))")
 
             // Get MIDI data and load into player
             let midiString = verovioService.getMIDI()

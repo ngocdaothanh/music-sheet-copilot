@@ -11,11 +11,12 @@ import WebKit
 /// SwiftUI view that displays multiple pages of SVG music notation vertically
 struct MultiPageSVGMusicSheetView: View {
     let svgPages: [String]
+    let timingData: String
     @ObservedObject var midiPlayer: MIDIPlayer
 
     var body: some View {
         ScrollView(.vertical) {
-            CombinedSVGWebView(svgPages: svgPages, currentTime: midiPlayer.currentTime, isPlaying: midiPlayer.isPlaying)
+            CombinedSVGWebView(svgPages: svgPages, timingData: timingData, currentTime: midiPlayer.currentTime, isPlaying: midiPlayer.isPlaying)
                 .frame(maxWidth: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -31,15 +32,16 @@ struct MultiPageSVGMusicSheetView: View {
 /// Single WebView that displays all SVG pages
 struct CombinedSVGWebView: View {
     let svgPages: [String]
+    let timingData: String
     let currentTime: TimeInterval
     let isPlaying: Bool
 
     var body: some View {
         #if os(macOS)
-        CombinedSVGWebViewMac(svgPages: svgPages, currentTime: currentTime, isPlaying: isPlaying)
+        CombinedSVGWebViewMac(svgPages: svgPages, timingData: timingData, currentTime: currentTime, isPlaying: isPlaying)
             .frame(maxWidth: .infinity, minHeight: 800)
         #else
-        CombinedSVGWebViewiOS(svgPages: svgPages, currentTime: currentTime, isPlaying: isPlaying)
+        CombinedSVGWebViewiOS(svgPages: svgPages, timingData: timingData, currentTime: currentTime, isPlaying: isPlaying)
             .frame(maxWidth: .infinity, minHeight: 800)
         #endif
     }
@@ -48,6 +50,7 @@ struct CombinedSVGWebView: View {
 #if os(macOS)
 struct CombinedSVGWebViewMac: NSViewRepresentable {
     let svgPages: [String]
+    let timingData: String
     let currentTime: TimeInterval
     let isPlaying: Bool
 
@@ -61,7 +64,7 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
     func updateNSView(_ webView: WKWebView, context: Context) {
         // Only reload HTML if pages changed (not on every time update)
         if context.coordinator.currentPages != svgPages {
-            let html = createHTML(svgPages: svgPages)
+            let html = createHTML(svgPages: svgPages, timingData: timingData)
             print("CombinedSVGWebViewMac - Loading \(svgPages.count) page(s)")
             webView.loadHTMLString(html, baseURL: nil)
             context.coordinator.currentPages = svgPages
@@ -69,8 +72,8 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
 
         // Update highlighting based on playback time
         if isPlaying {
-            let progress = currentTime
-            let script = "updatePlaybackHighlight(\(progress));"
+            let progressMs = currentTime * 1000  // Convert to milliseconds
+            let script = "updatePlaybackHighlight(\(progressMs));"
             webView.evaluateJavaScript(script, completionHandler: nil)
         } else {
             // Clear highlighting when not playing
@@ -86,7 +89,7 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
         var currentPages: [String] = []
     }
 
-    private func createHTML(svgPages: [String]) -> String {
+    private func createHTML(svgPages: [String], timingData: String) -> String {
         let svgContent = svgPages.enumerated().map { index, svg in
             let pageLabel = svgPages.count > 1 ? "<div class=\"page-label\">Page \(index + 1)</div>" : ""
             return """
@@ -136,23 +139,59 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                 }
             </style>
             <script>
+                // Parse Verovio timing data
+                const timingData = \(timingData);
                 let currentHighlightedElements = [];
 
-                function updatePlaybackHighlight(time) {
-                    // Clear previous highlights
+                console.log('Timing data:', timingData);
+                console.log('Type:', typeof timingData, 'Array?', Array.isArray(timingData));
+
+                function updatePlaybackHighlight(timeMs) {
                     clearPlaybackHighlight();
 
-                    // Get all note elements (Verovio uses class 'note' for note heads)
-                    const notes = document.querySelectorAll('.note, .chord');
+                    console.log('Highlighting at time:', timeMs);
 
-                    // Simple time-based highlighting (this is approximate)
-                    // In a real implementation, you'd need timing data from Verovio
-                    const noteIndex = Math.floor(time * 2); // Rough approximation
-
-                    if (notes[noteIndex]) {
-                        notes[noteIndex].classList.add('highlighted-note');
-                        currentHighlightedElements.push(notes[noteIndex]);
+                    // Find all notes that should be highlighted at current time
+                    if (!timingData || !Array.isArray(timingData)) {
+                        console.log('No valid timing data');
+                        return;
                     }
+
+                    let highlightCount = 0;
+
+                    // Verovio timing data structure:
+                    // Each entry has: tstamp (timestamp in ms), on (array of IDs turning on), off (array of IDs turning off)
+                    // We need to track which notes are currently active
+                    let currentIndex = 0;
+                    const activeNotes = new Set();
+
+                    // Process all timing entries up to current time
+                    for (let i = 0; i < timingData.length; i++) {
+                        const entry = timingData[i];
+                        if (entry.tstamp > timeMs) break;
+
+                        // Add notes that turn on
+                        if (entry.on) {
+                            entry.on.forEach(id => activeNotes.add(id));
+                        }
+
+                        // Remove notes that turn off
+                        if (entry.off) {
+                            entry.off.forEach(id => activeNotes.delete(id));
+                        }
+                    }
+
+                    // Highlight all active notes
+                    activeNotes.forEach(id => {
+                        const elements = document.querySelectorAll(`[*|id="${id}"]`);
+                        elements.forEach(el => {
+                            el.classList.add('highlighted-note');
+                            currentHighlightedElements.push(el);
+                            highlightCount++;
+                        });
+                    });
+
+                    console.log(`Highlighted ${highlightCount} elements from ${activeNotes.size} active notes`);
                 }
 
                 function clearPlaybackHighlight() {
@@ -173,6 +212,7 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
 #else
 struct CombinedSVGWebViewiOS: UIViewRepresentable {
     let svgPages: [String]
+    let timingData: String
     let currentTime: TimeInterval
     let isPlaying: Bool
 
@@ -187,15 +227,15 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
     func updateUIView(_ webView: WKWebView, context: Context) {
         // Only reload HTML if pages changed
         if context.coordinator.currentPages != svgPages {
-            let html = createHTML(svgPages: svgPages)
+            let html = createHTML(svgPages: svgPages, timingData: timingData)
             webView.loadHTMLString(html, baseURL: nil)
             context.coordinator.currentPages = svgPages
         }
 
         // Update highlighting based on playback time
         if isPlaying {
-            let progress = currentTime
-            let script = "updatePlaybackHighlight(\(progress));"
+            let progressMs = currentTime * 1000
+            let script = "updatePlaybackHighlight(\(progressMs));"
             webView.evaluateJavaScript(script, completionHandler: nil)
         } else {
             webView.evaluateJavaScript("clearPlaybackHighlight();", completionHandler: nil)
@@ -210,7 +250,7 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
         var currentPages: [String] = []
     }
 
-    private func createHTML(svgPages: [String]) -> String {
+    private func createHTML(svgPages: [String], timingData: String) -> String {
         let svgContent = svgPages.enumerated().map { index, svg in
             let pageLabel = svgPages.count > 1 ? "<div class=\"page-label\">Page \(index + 1)</div>" : ""
             return """
@@ -260,17 +300,48 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
                 }
             </style>
             <script>
+                // Parse Verovio timing data
+                const timingData = \(timingData);
                 let currentHighlightedElements = [];
 
-                function updatePlaybackHighlight(time) {
+                function updatePlaybackHighlight(timeMs) {
+                    console.log("updatePlaybackHighlight called with time:", timeMs);
                     clearPlaybackHighlight();
-                    const notes = document.querySelectorAll('.note, .chord');
-                    const noteIndex = Math.floor(time * 2);
 
-                    if (notes[noteIndex]) {
-                        notes[noteIndex].classList.add('highlighted-note');
-                        currentHighlightedElements.push(notes[noteIndex]);
+                    // Find all notes that should be active at current time
+                    if (!timingData || !Array.isArray(timingData)) {
+                        console.log("No timing data available");
+                        return;
                     }
+
+                    // Build set of currently active note IDs
+                    const activeNotes = new Set();
+
+                    for (const entry of timingData) {
+                        if (entry.tstamp > timeMs) break; // Stop when we reach future events
+
+                        // Add notes that start at this event
+                        if (entry.on && Array.isArray(entry.on)) {
+                            entry.on.forEach(id => activeNotes.add(id));
+                        }
+
+                        // Remove notes that end at this event
+                        if (entry.off && Array.isArray(entry.off)) {
+                            entry.off.forEach(id => activeNotes.delete(id));
+                        }
+                    }
+
+                    console.log("Active notes:", Array.from(activeNotes));
+
+                    // Highlight all currently active notes
+                    activeNotes.forEach(noteId => {
+                        const elements = document.querySelectorAll(`[*|id="${noteId}"]`);
+                        console.log(`Found ${elements.length} elements for note ${noteId}`);
+                        elements.forEach(el => {
+                            el.classList.add('highlighted-note');
+                            currentHighlightedElements.push(el);
+                        });
+                    });
                 }
 
                 function clearPlaybackHighlight() {
@@ -302,5 +373,5 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
             <text x="100" y="50" text-anchor="middle" font-size="20">Page 2</text>
         </svg>
         """
-    ], midiPlayer: MIDIPlayer())
+    ], timingData: "[]", midiPlayer: MIDIPlayer())
 }

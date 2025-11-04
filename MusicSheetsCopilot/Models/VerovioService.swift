@@ -214,6 +214,13 @@ class VerovioService {
     func getMIDI() -> String {
         return toolkit.renderToMIDI()
     }
+
+    /// Get timing information for all elements (notes, measures, etc.)
+    /// Returns a JSON string with element IDs and their on/off times in milliseconds
+    func getTimingMap() -> String {
+        // renderToTimemap requires an options parameter (empty string for defaults)
+        return toolkit.renderToTimemap("")
+    }
 }
 
 enum VerovioError: Error, LocalizedError {
