@@ -6,6 +6,12 @@
 import Foundation
 import AVFoundation
 
+enum MetronomeMode {
+    case tick        // Traditional tick sound
+    case solfege     // Do Re Mi based on actual notes
+    case counting    // One Two Three Four based on beats
+}
+
 class Metronome: ObservableObject {
     @Published var isEnabled: Bool = false
     @Published var isTicking: Bool = false
@@ -13,7 +19,7 @@ class Metronome: ObservableObject {
         didSet { updateTimer() }
     }
     @Published var timeSignature: (Int, Int) = (4, 4)
-    @Published var useSolfegeNames: Bool = false // Do Re Mi Fa Sol La Si
+    @Published var mode: MetronomeMode = .tick
 
     private var audioPlayer: AVAudioPlayer?
     private var timer: Timer?
@@ -91,9 +97,11 @@ class Metronome: ObservableObject {
         tickCount = 0
         lastSpokenTime = -1
 
-        // Play an immediate tick when starting in beat mode
-        if !useSolfegeNames {
+        // Play an immediate tick/count when starting in beat or counting mode
+        if mode == .tick {
             playTickSound()
+        } else if mode == .counting {
+            speakCount()
         }
 
         updateTimer()
@@ -114,7 +122,7 @@ class Metronome: ObservableObject {
         guard isEnabled && isTicking else { return }
 
         // When using solfege names, check more frequently to catch note events
-        let interval = useSolfegeNames ? 0.05 : (60.0 / bpm)
+        let interval = mode == .solfege ? 0.05 : (60.0 / bpm)
 
         timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             self?.tick()
@@ -122,10 +130,17 @@ class Metronome: ObservableObject {
     }
 
     private func tick() {
-        if useSolfegeNames {
-            speakNotesAtCurrentTime()
-        } else {
+        switch mode {
+        case .tick:
             playTickSound()
+            tickCount += 1
+            if tickCount >= timeSignature.0 {
+                tickCount = 0
+            }
+        case .solfege:
+            speakNotesAtCurrentTime()
+        case .counting:
+            speakCount()
             tickCount += 1
             if tickCount >= timeSignature.0 {
                 tickCount = 0
@@ -180,5 +195,26 @@ class Metronome: ObservableObject {
 
             speechSynthesizer.speak(utterance)
         }
+    }
+
+    private func speakCount() {
+        // Speak the beat number (1, 2, 3, 4...)
+        let beatNumber = (tickCount % timeSignature.0) + 1
+        let numberWords = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight",
+                          "Nine", "Ten", "Eleven", "Twelve"]
+
+        guard beatNumber <= numberWords.count else { return }
+
+        let utterance = AVSpeechUtterance(string: numberWords[beatNumber - 1])
+        utterance.rate = 0.55
+        utterance.volume = 1.0
+        utterance.pitchMultiplier = 1.0
+
+        // Stop any ongoing speech
+        if speechSynthesizer.isSpeaking {
+            speechSynthesizer.stopSpeaking(at: .immediate)
+        }
+
+        speechSynthesizer.speak(utterance)
     }
 }

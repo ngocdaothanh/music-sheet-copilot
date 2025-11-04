@@ -138,20 +138,43 @@ struct ContentView: View {
                         }
                     }
 
-                    // Solfege toggle (only show when metronome is enabled)
+                    // Metronome mode selector (only show when metronome is enabled)
                     if metronome.isEnabled {
-                        Toggle(isOn: $metronome.useSolfegeNames) {
-                            Text("Do Re Mi")
-                        }
-                        .toggleStyle(.button)
-                        .help(metronome.useSolfegeNames ? "Use Beat Sound" : "Use Solfege Names (Do Re Mi)")
-                        .onChange(of: metronome.useSolfegeNames) { _ in
-                            // Restart timer with appropriate interval for the mode
-                            if metronome.isTicking {
-                                metronome.stop()
-                                metronome.start()
+                        Menu {
+                            Button("Tick") {
+                                metronome.mode = .tick
+                                if metronome.isTicking {
+                                    metronome.stop()
+                                    metronome.start()
+                                }
+                            }
+                            Button("Count (1-2-3-4)") {
+                                metronome.mode = .counting
+                                if metronome.isTicking {
+                                    metronome.stop()
+                                    metronome.start()
+                                }
+                            }
+                            Button("Solfege (Do-Re-Mi)") {
+                                metronome.mode = .solfege
+                                if metronome.isTicking {
+                                    metronome.stop()
+                                    metronome.start()
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                switch metronome.mode {
+                                case .tick:
+                                    Image(systemName: "waveform")
+                                case .counting:
+                                    Image(systemName: "textformat.123")
+                                case .solfege:
+                                    Image(systemName: "music.note")
+                                }
                             }
                         }
+                        .help("Metronome Mode")
                     }
 
                     Button("Load Another") {
