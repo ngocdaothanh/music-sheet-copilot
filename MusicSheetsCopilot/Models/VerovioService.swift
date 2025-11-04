@@ -195,9 +195,12 @@ class VerovioService: ObservableObject {
             throw VerovioError.invalidData
         }
 
-        // Extract available parts from the ORIGINAL (unfiltered) score
-        // Always extract parts to ensure we reset state on new file load
-        extractAvailableParts(from: musicXMLString)
+        // Extract available parts/staves from the ORIGINAL (unfiltered) score
+        // Only extract if this is a new file (data changed) or first load
+        let isNewFile = (lastLoadedData != data)
+        if isNewFile {
+            extractAvailableParts(from: musicXMLString)
+        }
 
         // Filter staves if needed
         if !enabledStaves.isEmpty && enabledStaves.count < availableStaves.count {
@@ -212,9 +215,6 @@ class VerovioService: ObservableObject {
         // Store for tempo extraction
         lastLoadedMusicXML = musicXMLString
         lastLoadedData = data
-
-        // Extract parts and staves information
-        extractAvailableParts(from: musicXMLString)
 
         // Load the MusicXML
         let loadSuccess = toolkit.loadData(musicXMLString)
