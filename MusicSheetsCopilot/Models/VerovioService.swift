@@ -154,6 +154,48 @@ class VerovioService {
         return svg
     }
 
+    /// Render all pages of the loaded MusicXML to an array of SVG strings
+    /// - Parameters:
+    ///   - data: MusicXML data
+    ///   - options: Rendering options
+    /// - Returns: Array of SVG strings, one per page
+    func renderAllPages(data: Data, options: RenderOptions = RenderOptions()) throws -> [String] {
+        // Set options
+        toolkit.setOptions(options.jsonString)
+
+        // Convert data to string
+        guard let musicXMLString = String(data: data, encoding: .utf8) else {
+            throw VerovioError.invalidData
+        }
+
+        // Load the MusicXML
+        let loadSuccess = toolkit.loadData(musicXMLString)
+        print("Verovio loadData result: \(loadSuccess)")
+
+        guard loadSuccess else {
+            let errorLog = toolkit.getLog()
+            print("Verovio error log: \(errorLog)")
+            throw VerovioError.loadFailed(message: errorLog)
+        }
+
+        // Get page count
+        let pageCount = Int(toolkit.getPageCount())
+        print("Total pages: \(pageCount)")
+
+        // Render all pages
+        var svgPages: [String] = []
+        for pageNum in 1...pageCount {
+            let svg = toolkit.renderToSVG(pageNum, false)
+            guard !svg.isEmpty else {
+                throw VerovioError.renderFailed
+            }
+            svgPages.append(svg)
+            print("Rendered page \(pageNum), SVG length: \(svg.count)")
+        }
+
+        return svgPages
+    }
+
     /// Get the number of pages in the loaded document
     func getPageCount() -> Int {
         return Int(toolkit.getPageCount())

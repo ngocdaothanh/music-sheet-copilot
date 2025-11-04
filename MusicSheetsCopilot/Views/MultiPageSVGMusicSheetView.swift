@@ -1,5 +1,5 @@
 //
-//  SVGMusicSheetView.swift
+//  MultiPageSVGMusicSheetView.swift
 //  MusicSheetsCopilot
 //
 //  Created on November 4, 2025.
@@ -8,16 +8,28 @@
 import SwiftUI
 import WebKit
 
-/// SwiftUI view that displays SVG music notation
-struct SVGMusicSheetView: View {
-    let svgString: String
+/// SwiftUI view that displays multiple pages of SVG music notation vertically
+struct MultiPageSVGMusicSheetView: View {
+    let svgPages: [String]
 
     @State private var scale: CGFloat = 1.0
 
     var body: some View {
         ScrollView([.horizontal, .vertical]) {
-            SVGWebView(svgString: svgString)
-                .scaleEffect(scale)
+            VStack(spacing: 20) {
+                ForEach(Array(svgPages.enumerated()), id: \.offset) { index, svgString in
+                    VStack(spacing: 5) {
+                        Text("Page \(index + 1)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        SVGWebView(svgString: svgString)
+                            .frame(minWidth: 600, minHeight: 400)
+                    }
+                }
+            }
+            .padding()
+            .scaleEffect(scale)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .toolbar {
@@ -33,6 +45,9 @@ struct SVGMusicSheetView: View {
                 Button(action: { scale = 1.0 }) {
                     Text("100%")
                 }
+
+                Text("\(svgPages.count) page\(svgPages.count == 1 ? "" : "s")")
+                    .foregroundColor(.secondary)
             }
         }
     }
@@ -45,10 +60,8 @@ struct SVGWebView: View {
     var body: some View {
         #if os(macOS)
         SVGWebViewMac(svgString: svgString)
-            .frame(minWidth: 600, minHeight: 400)
         #else
         SVGWebViewiOS(svgString: svgString)
-            .frame(minWidth: 600, minHeight: 400)
         #endif
     }
 }
@@ -65,9 +78,6 @@ struct SVGWebViewMac: NSViewRepresentable {
 
     func updateNSView(_ webView: WKWebView, context: Context) {
         let html = createHTML(svg: svgString)
-        print("SVGWebViewMac - Loading HTML, length: \(html.count)")
-        print("SVGWebViewMac - SVG length: \(svgString.count)")
-        print("SVGWebViewMac - HTML preview (first 800 chars): \(String(html.prefix(800)))")
         webView.loadHTMLString(html, baseURL: nil)
     }
 
@@ -147,9 +157,16 @@ struct SVGWebViewiOS: UIViewRepresentable {
 #endif
 
 #Preview {
-    SVGMusicSheetView(svgString: """
-    <svg xmlns="http://www.w3.org/2000/svg" width="200" height="100">
-        <circle cx="100" cy="50" r="40" fill="blue" />
-    </svg>
-    """)
+    MultiPageSVGMusicSheetView(svgPages: [
+        """
+        <svg xmlns="http://www.w3.org/2000/svg" width="200" height="100">
+            <text x="100" y="50" text-anchor="middle" font-size="20">Page 1</text>
+        </svg>
+        """,
+        """
+        <svg xmlns="http://www.w3.org/2000/svg" width="200" height="100">
+            <text x="100" y="50" text-anchor="middle" font-size="20">Page 2</text>
+        </svg>
+        """
+    ])
 }

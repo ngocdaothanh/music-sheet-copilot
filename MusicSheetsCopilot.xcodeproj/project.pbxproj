@@ -7,16 +7,17 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		73AD151C2EB9A8F400478D55 /* MultiPageSVGMusicSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73AD151B2EB9A8F400478D55 /* MultiPageSVGMusicSheetView.swift */; };
 		E1A001 /* MusicSheetsCopilotApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A002 /* MusicSheetsCopilotApp.swift */; };
 		E1A003 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A004 /* ContentView.swift */; };
 		E1A005 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E1A006 /* Assets.xcassets */; };
 		E1A013 /* twinkle_twinkle.xml in Resources */ = {isa = PBXBuildFile; fileRef = E1A014 /* twinkle_twinkle.xml */; };
 		E1A034 /* VerovioToolkit in Frameworks */ = {isa = PBXBuildFile; productRef = E1A035 /* VerovioToolkit */; };
 		E1A037 /* VerovioService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A038 /* VerovioService.swift */; };
-		E1A039 /* SVGMusicSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A040 /* SVGMusicSheetView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		73AD151B2EB9A8F400478D55 /* MultiPageSVGMusicSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiPageSVGMusicSheetView.swift; sourceTree = "<group>"; };
 		E1A002 /* MusicSheetsCopilotApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicSheetsCopilotApp.swift; sourceTree = "<group>"; };
 		E1A004 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		E1A006 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -24,7 +25,6 @@
 		E1A015 /* MusicSheetsCopilot.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MusicSheetsCopilot.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E1A016 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		E1A038 /* VerovioService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerovioService.swift; sourceTree = "<group>"; };
-		E1A040 /* SVGMusicSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SVGMusicSheetView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -72,7 +72,7 @@
 		E1A021 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				E1A040 /* SVGMusicSheetView.swift */,
+				73AD151B2EB9A8F400478D55 /* MultiPageSVGMusicSheetView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -170,9 +170,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				E1A003 /* ContentView.swift in Sources */,
+				73AD151C2EB9A8F400478D55 /* MultiPageSVGMusicSheetView.swift in Sources */,
 				E1A001 /* MusicSheetsCopilotApp.swift in Sources */,
 				E1A037 /* VerovioService.swift in Sources */,
-				E1A039 /* SVGMusicSheetView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

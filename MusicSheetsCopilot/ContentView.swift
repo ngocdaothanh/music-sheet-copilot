@@ -9,7 +9,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ContentView: View {
-    @State private var svgOutput: String?
+    @State private var svgPages: [String]?
     @State private var documentTitle: String = "Music Sheets"
     @State private var isImporting = false
     @State private var errorMessage: String?
@@ -18,8 +18,8 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if let svg = svgOutput {
-                SVGMusicSheetView(svgString: svg)
+            if let pages = svgPages {
+                MultiPageSVGMusicSheetView(svgPages: pages)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 VStack(spacing: 20) {
@@ -71,7 +71,7 @@ struct ContentView: View {
         #endif
         .toolbar {
             ToolbarItemGroup {
-                if svgOutput != nil {
+                if svgPages != nil {
                     Button("Load Another") {
                         isImporting = true
                     }
@@ -110,11 +110,10 @@ struct ContentView: View {
         do {
             let data = try Data(contentsOf: url)
 
-            // Render with Verovio
-            let svg = try verovioService.renderMusicXML(data: data)
-            print("ContentView received SVG, length: \(svg.count)")
-            print("SVG preview (first 500 chars): \(String(svg.prefix(500)))")
-            svgOutput = svg
+            // Render all pages with Verovio
+            let pages = try verovioService.renderAllPages(data: data)
+            print("ContentView received \(pages.count) page(s)")
+            svgPages = pages
 
             // Extract title from filename if needed
             documentTitle = url.deletingPathExtension().lastPathComponent
@@ -123,7 +122,7 @@ struct ContentView: View {
 
         } catch {
             errorMessage = "Failed to render MusicXML: \(error.localizedDescription)"
-            svgOutput = nil
+            svgPages = nil
         }
     }
 }
