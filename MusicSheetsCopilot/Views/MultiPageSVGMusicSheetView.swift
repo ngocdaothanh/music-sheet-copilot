@@ -13,6 +13,7 @@ struct MultiPageSVGMusicSheetView: View {
     let svgPages: [String]
     let timingData: String
     @ObservedObject var midiPlayer: MIDIPlayer
+    @EnvironmentObject var verovioService: VerovioService
 
     var body: some View {
         ScrollView(.vertical) {
@@ -35,6 +36,8 @@ struct CombinedSVGWebView: View {
     let timingData: String
     let currentTime: TimeInterval
     let isPlaying: Bool
+    @EnvironmentObject var verovioService: VerovioService
+    @EnvironmentObject var midiPlayer: MIDIPlayer
 
     var body: some View {
         #if os(macOS)
@@ -53,15 +56,22 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
     let timingData: String
     let currentTime: TimeInterval
     let isPlaying: Bool
+    @EnvironmentObject var verovioService: VerovioService
+    @EnvironmentObject var midiPlayer: MIDIPlayer
 
     func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
+        config.userContentController.add(context.coordinator, name: "noteClickHandler")
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.setValue(false, forKey: "drawsBackground")
         return webView
     }
 
     func updateNSView(_ webView: WKWebView, context: Context) {
+        // Store references in coordinator
+        context.coordinator.verovioService = verovioService
+        context.coordinator.midiPlayer = midiPlayer
+
         // Only reload HTML if pages changed (not on every time update)
         if context.coordinator.currentPages != svgPages {
             let html = createHTML(svgPages: svgPages, timingData: timingData)
@@ -71,12 +81,16 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
         }
 
         // Update highlighting based on playback time
+        let progressMs = currentTime * 1000  // Convert to milliseconds
         if isPlaying {
-            let progressMs = currentTime * 1000  // Convert to milliseconds
+            let script = "updatePlaybackHighlight(\(progressMs));"
+            webView.evaluateJavaScript(script, completionHandler: nil)
+        } else if currentTime > 0 {
+            // Update highlighting even when paused to show the current position
             let script = "updatePlaybackHighlight(\(progressMs));"
             webView.evaluateJavaScript(script, completionHandler: nil)
         } else {
-            // Clear highlighting when not playing
+            // Clear highlighting when stopped at beginning
             webView.evaluateJavaScript("clearPlaybackHighlight();", completionHandler: nil)
         }
     }
@@ -85,8 +99,23 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
         Coordinator()
     }
 
-    class Coordinator {
+    class Coordinator: NSObject, WKScriptMessageHandler {
         var currentPages: [String] = []
+        weak var verovioService: VerovioService?
+        weak var midiPlayer: MIDIPlayer?
+
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            guard message.name == "noteClickHandler",
+                  let noteId = message.body as? String else { return }
+
+            print("Note clicked: \(noteId)")
+
+            // Find the start time for this note
+            if let startTime = verovioService?.getNoteStartTime(noteId) {
+                print("Seeking to time: \(startTime)s")
+                midiPlayer?.seek(to: startTime)
+            }
+        }
     }
 
     private func createHTML(svgPages: [String], timingData: String) -> String {
@@ -200,6 +229,40 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                     });
                     currentHighlightedElements = [];
                 }
+
+                // Initialize click handlers when page loads
+                window.addEventListener('load', function() {
+                    console.log('Setting up click handlers for notes');
+
+                    // Find all note elements and make them clickable
+                    // Verovio notes typically have class 'note' or are within elements with timing data
+                    const noteElements = document.querySelectorAll('.note, [class*="note"]');
+                    console.log(`Found ${noteElements.length} note elements`);
+
+                    // Also add handlers for all elements that have IDs in our timing data
+                    if (timingData && Array.isArray(timingData)) {
+                        const allNoteIds = new Set();
+                        timingData.forEach(entry => {
+                            if (entry.on) {
+                                entry.on.forEach(id => allNoteIds.add(id));
+                            }
+                        });
+
+                        console.log(`Found ${allNoteIds.size} unique note IDs in timing data`);
+
+                        allNoteIds.forEach(noteId => {
+                            const elements = document.querySelectorAll(`[*|id="${noteId}"]`);
+                            elements.forEach(el => {
+                                el.style.cursor = 'pointer';
+                                el.addEventListener('click', function(e) {
+                                    e.stopPropagation();
+                                    console.log('Clicked note:', noteId);
+                                    window.webkit.messageHandlers.noteClickHandler.postMessage(noteId);
+                                });
+                            });
+                        });
+                    }
+                });
             </script>
         </head>
         <body>
@@ -215,9 +278,13 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
     let timingData: String
     let currentTime: TimeInterval
     let isPlaying: Bool
+    @EnvironmentObject var verovioService: VerovioService
+    @EnvironmentObject var midiPlayer: MIDIPlayer
 
     func makeUIView(context: Context) -> WKWebView {
-        let webView = WKWebView()
+        let config = WKWebViewConfiguration()
+        config.userContentController.add(context.coordinator, name: "noteClickHandler")
+        let webView = WKWebView(frame: .zero, configuration: config)
         webView.isOpaque = false
         webView.backgroundColor = .clear
         webView.scrollView.backgroundColor = .clear
@@ -225,6 +292,10 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
+        // Store references in coordinator
+        context.coordinator.verovioService = verovioService
+        context.coordinator.midiPlayer = midiPlayer
+
         // Only reload HTML if pages changed
         if context.coordinator.currentPages != svgPages {
             let html = createHTML(svgPages: svgPages, timingData: timingData)
@@ -233,8 +304,12 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
         }
 
         // Update highlighting based on playback time
+        let progressMs = currentTime * 1000
         if isPlaying {
-            let progressMs = currentTime * 1000
+            let script = "updatePlaybackHighlight(\(progressMs));"
+            webView.evaluateJavaScript(script, completionHandler: nil)
+        } else if currentTime > 0 {
+            // Update highlighting even when paused to show the current position
             let script = "updatePlaybackHighlight(\(progressMs));"
             webView.evaluateJavaScript(script, completionHandler: nil)
         } else {
@@ -246,8 +321,23 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
         Coordinator()
     }
 
-    class Coordinator {
+    class Coordinator: NSObject, WKScriptMessageHandler {
         var currentPages: [String] = []
+        weak var verovioService: VerovioService?
+        weak var midiPlayer: MIDIPlayer?
+
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            guard message.name == "noteClickHandler",
+                  let noteId = message.body as? String else { return }
+
+            print("Note clicked: \(noteId)")
+
+            // Find the start time for this note
+            if let startTime = verovioService?.getNoteStartTime(noteId) {
+                print("Seeking to time: \(startTime)s")
+                midiPlayer?.seek(to: startTime)
+            }
+        }
     }
 
     private func createHTML(svgPages: [String], timingData: String) -> String {
@@ -350,6 +440,35 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
                     });
                     currentHighlightedElements = [];
                 }
+
+                // Initialize click handlers when page loads
+                window.addEventListener('load', function() {
+                    console.log('Setting up click handlers for notes');
+
+                    // Add handlers for all elements that have IDs in our timing data
+                    if (timingData && Array.isArray(timingData)) {
+                        const allNoteIds = new Set();
+                        timingData.forEach(entry => {
+                            if (entry.on) {
+                                entry.on.forEach(id => allNoteIds.add(id));
+                            }
+                        });
+
+                        console.log(`Found ${allNoteIds.size} unique note IDs in timing data`);
+
+                        allNoteIds.forEach(noteId => {
+                            const elements = document.querySelectorAll(`[*|id="${noteId}"]`);
+                            elements.forEach(el => {
+                                el.style.cursor = 'pointer';
+                                el.addEventListener('click', function(e) {
+                                    e.stopPropagation();
+                                    console.log('Clicked note:', noteId);
+                                    window.webkit.messageHandlers.noteClickHandler.postMessage(noteId);
+                                });
+                            });
+                        });
+                    }
+                });
             </script>
         </head>
         <body>

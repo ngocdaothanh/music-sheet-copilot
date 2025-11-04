@@ -9,6 +9,9 @@ A universal iOS and macOS app for viewing MusicXML sheet music files, powered by
 - 📄 Professional music sheet rendering (SVG-based)
 - 🎹 Demo file included (Twinkle Twinkle Little Star)
 - 🔍 Zoom controls for better viewing
+- 🎼 **MIDI playback** with play/pause controls
+- 🎯 **Interactive note highlighting** during playback
+- 👆 **Click-to-play**: Click any note to start playback from that point
 - ⚡ High-quality output used by academic institutions worldwide
 
 ## Technology Stack
@@ -72,11 +75,14 @@ Thanks to Verovio, this app supports the **complete MusicXML specification**, in
 ## Future Enhancements
 
 Planned features:
+- ✅ ~~MIDI playback and note highlighting~~ (Implemented!)
+- ✅ ~~Click-to-play from any note~~ (Implemented!)
 - Sheet music annotation and markup
 - Export to PDF
 - Compressed MusicXML (.mxl) support
 - Transposition tools
-- Tempo and playback controls
+- Jump to specific measure by number
+- Practice mode with loop sections
 
 ## Acknowledgments
 

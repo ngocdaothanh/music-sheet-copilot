@@ -32,19 +32,27 @@ class MIDIPlayer: ObservableObject {
     }
 
     /// Start or resume playback
-    func play() {
+    /// - Parameter fromPosition: Optional position to start from (in seconds). If nil, continues from current position.
+    func play(fromPosition: TimeInterval? = nil) {
         guard let player = midiPlayer else {
             print("No MIDI data loaded")
             return
         }
 
-        // Reset to beginning if we're at the end
-        if player.currentPosition >= player.duration {
+        // Reset to beginning if we're at the end (and not explicitly seeking)
+        if fromPosition == nil && player.currentPosition >= player.duration {
             player.currentPosition = 0
             currentTime = 0
         }
 
         player.prepareToPlay()
+
+        // Set position AFTER prepareToPlay if specified
+        if let startPosition = fromPosition {
+            player.currentPosition = startPosition
+            currentTime = startPosition
+        }
+
         player.play {
             DispatchQueue.main.async {
                 self.isPlaying = false
@@ -84,6 +92,36 @@ class MIDIPlayer: ObservableObject {
             pause()
         } else {
             play()
+        }
+    }
+
+    /// Seek to a specific time position (in seconds)
+    func seek(to time: TimeInterval) {
+        guard let player = midiPlayer else {
+            print("No MIDI data loaded")
+            return
+        }
+
+        // Clamp time to valid range
+        let seekTime = max(0, min(time, duration))
+
+        let wasPlaying = isPlaying
+        if wasPlaying {
+            pause()
+        }
+
+        // Update current time immediately for UI
+        currentTime = seekTime
+        print("Seeked to position: \(seekTime)s")
+
+        if wasPlaying {
+            // Small delay to ensure UI updates before resuming playback
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                self.play(fromPosition: seekTime)
+            }
+        } else {
+            // Just update position without playing
+            player.currentPosition = seekTime
         }
     }
 

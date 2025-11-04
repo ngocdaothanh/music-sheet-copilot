@@ -9,7 +9,7 @@ import Foundation
 import VerovioToolkit
 
 /// A service class to interact with the Verovio music notation library
-class VerovioService {
+class VerovioService: ObservableObject {
     private let toolkit: VerovioToolkit
 
     /// Configuration options for rendering
@@ -220,6 +220,76 @@ class VerovioService {
     func getTimingMap() -> String {
         // renderToTimemap requires an options parameter (empty string for defaults)
         return toolkit.renderToTimemap("")
+    }
+
+    /// Extract measure start times from timing data
+    /// Returns an array of (measureNumber, startTimeInSeconds)
+    func getMeasureTimings() -> [(measure: Int, time: TimeInterval)] {
+        let timingJSON = getTimingMap()
+
+        guard let data = timingJSON.data(using: .utf8),
+              let timingArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            print("Failed to parse timing data")
+            return []
+        }
+
+        var measureTimings: [(Int, TimeInterval)] = []
+        var currentMeasure = 1
+        var measureStartTime: TimeInterval = 0
+
+        // Scan through timing events to find measure boundaries
+        // Verovio timing data includes events with on/off arrays
+        for entry in timingArray {
+            guard let tstamp = entry["tstamp"] as? Double else { continue }
+            let timeInSeconds = tstamp / 1000.0
+
+            // Check if any of the "on" IDs represent a measure element
+            if let onArray = entry["on"] as? [String] {
+                for id in onArray {
+                    // Measure IDs typically start with "measure-" in MusicXML
+                    if id.contains("measure") {
+                        measureTimings.append((currentMeasure, measureStartTime))
+                        currentMeasure += 1
+                        measureStartTime = timeInSeconds
+                    }
+                }
+            }
+        }
+
+        // Add the first measure if we haven't found any
+        if measureTimings.isEmpty {
+            measureTimings.append((1, 0))
+        }
+
+        return measureTimings
+    }
+
+    /// Get the start time for a specific measure number
+    func getMeasureStartTime(_ measureNumber: Int) -> TimeInterval? {
+        let timings = getMeasureTimings()
+        return timings.first { $0.measure == measureNumber }?.time
+    }
+
+    /// Get the start time for a specific note ID from timing data
+    func getNoteStartTime(_ noteId: String) -> TimeInterval? {
+        let timingJSON = getTimingMap()
+
+        guard let data = timingJSON.data(using: .utf8),
+              let timingArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            return nil
+        }
+
+        // Find the first event where this note turns on
+        for entry in timingArray {
+            guard let tstamp = entry["tstamp"] as? Double,
+                  let onArray = entry["on"] as? [String] else { continue }
+
+            if onArray.contains(noteId) {
+                return tstamp / 1000.0 // Convert ms to seconds
+            }
+        }
+
+        return nil
     }
 }
 

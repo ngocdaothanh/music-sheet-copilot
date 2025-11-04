@@ -15,13 +15,14 @@ struct ContentView: View {
     @State private var isImporting = false
     @State private var errorMessage: String?
     @StateObject private var midiPlayer = MIDIPlayer()
-
-    private let verovioService = VerovioService()
+    @StateObject private var verovioService = VerovioService()
 
     var body: some View {
         VStack(spacing: 0) {
             if let pages = svgPages, let timing = timingData {
                 MultiPageSVGMusicSheetView(svgPages: pages, timingData: timing, midiPlayer: midiPlayer)
+                    .environmentObject(verovioService)
+                    .environmentObject(midiPlayer)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 VStack(spacing: 20) {
