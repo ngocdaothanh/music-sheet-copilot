@@ -13,6 +13,7 @@ struct ContentView: View {
     @State private var documentTitle: String = "Music Sheets"
     @State private var isImporting = false
     @State private var errorMessage: String?
+    @StateObject private var midiPlayer = MIDIPlayer()
 
     private let verovioService = VerovioService()
 
@@ -72,6 +73,17 @@ struct ContentView: View {
         .toolbar {
             ToolbarItemGroup {
                 if svgPages != nil {
+                    // Play/Pause button
+                    Button(action: {
+                        midiPlayer.togglePlayPause()
+                    }) {
+                        Image(systemName: midiPlayer.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                            .font(.title2)
+                    }
+                    .help(midiPlayer.isPlaying ? "Pause" : "Play")
+
+                    Divider()
+
                     Button("Load Another") {
                         isImporting = true
                     }
@@ -114,6 +126,15 @@ struct ContentView: View {
             let pages = try verovioService.renderAllPages(data: data)
             print("ContentView received \(pages.count) page(s)")
             svgPages = pages
+
+            // Get MIDI data and load into player
+            let midiString = verovioService.getMIDI()
+            if let midiData = Data(base64Encoded: midiString) {
+                try midiPlayer.loadMIDI(data: midiData)
+                print("MIDI loaded successfully")
+            } else {
+                print("Failed to decode MIDI data from base64")
+            }
 
             // Extract title from filename if needed
             documentTitle = url.deletingPathExtension().lastPathComponent
