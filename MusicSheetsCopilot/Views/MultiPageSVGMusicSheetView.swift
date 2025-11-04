@@ -11,10 +11,11 @@ import WebKit
 /// SwiftUI view that displays multiple pages of SVG music notation vertically
 struct MultiPageSVGMusicSheetView: View {
     let svgPages: [String]
+    @ObservedObject var midiPlayer: MIDIPlayer
 
     var body: some View {
         ScrollView(.vertical) {
-            CombinedSVGWebView(svgPages: svgPages)
+            CombinedSVGWebView(svgPages: svgPages, currentTime: midiPlayer.currentTime, isPlaying: midiPlayer.isPlaying)
                 .frame(maxWidth: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -30,13 +31,15 @@ struct MultiPageSVGMusicSheetView: View {
 /// Single WebView that displays all SVG pages
 struct CombinedSVGWebView: View {
     let svgPages: [String]
+    let currentTime: TimeInterval
+    let isPlaying: Bool
 
     var body: some View {
         #if os(macOS)
-        CombinedSVGWebViewMac(svgPages: svgPages)
+        CombinedSVGWebViewMac(svgPages: svgPages, currentTime: currentTime, isPlaying: isPlaying)
             .frame(maxWidth: .infinity, minHeight: 800)
         #else
-        CombinedSVGWebViewiOS(svgPages: svgPages)
+        CombinedSVGWebViewiOS(svgPages: svgPages, currentTime: currentTime, isPlaying: isPlaying)
             .frame(maxWidth: .infinity, minHeight: 800)
         #endif
     }
@@ -45,6 +48,8 @@ struct CombinedSVGWebView: View {
 #if os(macOS)
 struct CombinedSVGWebViewMac: NSViewRepresentable {
     let svgPages: [String]
+    let currentTime: TimeInterval
+    let isPlaying: Bool
 
     func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
@@ -54,12 +59,31 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
     }
 
     func updateNSView(_ webView: WKWebView, context: Context) {
-        let html = createHTML(svgPages: svgPages)
-        print("CombinedSVGWebViewMac - Loading \(svgPages.count) page(s)")
-        print("CombinedSVGWebViewMac - Total HTML length: \(html.count)")
-        print("CombinedSVGWebViewMac - HTML preview (first 1000 chars):")
-        print(String(html.prefix(1000)))
-        webView.loadHTMLString(html, baseURL: nil)
+        // Only reload HTML if pages changed (not on every time update)
+        if context.coordinator.currentPages != svgPages {
+            let html = createHTML(svgPages: svgPages)
+            print("CombinedSVGWebViewMac - Loading \(svgPages.count) page(s)")
+            webView.loadHTMLString(html, baseURL: nil)
+            context.coordinator.currentPages = svgPages
+        }
+
+        // Update highlighting based on playback time
+        if isPlaying {
+            let progress = currentTime
+            let script = "updatePlaybackHighlight(\(progress));"
+            webView.evaluateJavaScript(script, completionHandler: nil)
+        } else {
+            // Clear highlighting when not playing
+            webView.evaluateJavaScript("clearPlaybackHighlight();", completionHandler: nil)
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    class Coordinator {
+        var currentPages: [String] = []
     }
 
     private func createHTML(svgPages: [String]) -> String {
@@ -106,7 +130,38 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                     height: auto;
                     display: block;
                 }
+                .highlighted-note {
+                    fill: #ff6b6b !important;
+                    opacity: 0.8;
+                }
             </style>
+            <script>
+                let currentHighlightedElements = [];
+
+                function updatePlaybackHighlight(time) {
+                    // Clear previous highlights
+                    clearPlaybackHighlight();
+
+                    // Get all note elements (Verovio uses class 'note' for note heads)
+                    const notes = document.querySelectorAll('.note, .chord');
+
+                    // Simple time-based highlighting (this is approximate)
+                    // In a real implementation, you'd need timing data from Verovio
+                    const noteIndex = Math.floor(time * 2); // Rough approximation
+
+                    if (notes[noteIndex]) {
+                        notes[noteIndex].classList.add('highlighted-note');
+                        currentHighlightedElements.push(notes[noteIndex]);
+                    }
+                }
+
+                function clearPlaybackHighlight() {
+                    currentHighlightedElements.forEach(el => {
+                        el.classList.remove('highlighted-note');
+                    });
+                    currentHighlightedElements = [];
+                }
+            </script>
         </head>
         <body>
             \(svgContent)
@@ -118,6 +173,8 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
 #else
 struct CombinedSVGWebViewiOS: UIViewRepresentable {
     let svgPages: [String]
+    let currentTime: TimeInterval
+    let isPlaying: Bool
 
     func makeUIView(context: Context) -> WKWebView {
         let webView = WKWebView()
@@ -128,8 +185,29 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
-        let html = createHTML(svgPages: svgPages)
-        webView.loadHTMLString(html, baseURL: nil)
+        // Only reload HTML if pages changed
+        if context.coordinator.currentPages != svgPages {
+            let html = createHTML(svgPages: svgPages)
+            webView.loadHTMLString(html, baseURL: nil)
+            context.coordinator.currentPages = svgPages
+        }
+
+        // Update highlighting based on playback time
+        if isPlaying {
+            let progress = currentTime
+            let script = "updatePlaybackHighlight(\(progress));"
+            webView.evaluateJavaScript(script, completionHandler: nil)
+        } else {
+            webView.evaluateJavaScript("clearPlaybackHighlight();", completionHandler: nil)
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    class Coordinator {
+        var currentPages: [String] = []
     }
 
     private func createHTML(svgPages: [String]) -> String {
@@ -176,7 +254,32 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
                     height: auto;
                     display: block;
                 }
+                .highlighted-note {
+                    fill: #ff6b6b !important;
+                    opacity: 0.8;
+                }
             </style>
+            <script>
+                let currentHighlightedElements = [];
+
+                function updatePlaybackHighlight(time) {
+                    clearPlaybackHighlight();
+                    const notes = document.querySelectorAll('.note, .chord');
+                    const noteIndex = Math.floor(time * 2);
+
+                    if (notes[noteIndex]) {
+                        notes[noteIndex].classList.add('highlighted-note');
+                        currentHighlightedElements.push(notes[noteIndex]);
+                    }
+                }
+
+                function clearPlaybackHighlight() {
+                    currentHighlightedElements.forEach(el => {
+                        el.classList.remove('highlighted-note');
+                    });
+                    currentHighlightedElements = [];
+                }
+            </script>
         </head>
         <body>
             \(svgContent)
@@ -199,5 +302,5 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
             <text x="100" y="50" text-anchor="middle" font-size="20">Page 2</text>
         </svg>
         """
-    ])
+    ], midiPlayer: MIDIPlayer())
 }

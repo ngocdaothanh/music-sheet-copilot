@@ -20,7 +20,7 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             if let pages = svgPages {
-                MultiPageSVGMusicSheetView(svgPages: pages)
+                MultiPageSVGMusicSheetView(svgPages: pages, midiPlayer: midiPlayer)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 VStack(spacing: 20) {
