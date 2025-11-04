@@ -75,8 +75,6 @@ Thanks to Verovio, this app supports the **complete MusicXML specification**, in
 ## Future Enhancements
 
 Planned features:
-- ✅ ~~MIDI playback and note highlighting~~ (Implemented!)
-- ✅ ~~Click-to-play from any note~~ (Implemented!)
 - Sheet music annotation and markup
 - Export to PDF
 - Compressed MusicXML (.mxl) support

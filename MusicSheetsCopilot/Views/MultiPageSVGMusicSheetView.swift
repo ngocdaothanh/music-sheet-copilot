@@ -150,6 +150,7 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                     flex-direction: column;
                     align-items: center;
                     gap: 10px;
+                    width: 100%;
                 }
                 .page-label {
                     font-family: -apple-system, BlinkMacSystemFont, sans-serif;
@@ -158,7 +159,7 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                     margin-bottom: 5px;
                 }
                 svg {
-                    max-width: 100%;
+                    width: 100%;
                     height: auto;
                     display: block;
                 }
@@ -372,6 +373,7 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
                     flex-direction: column;
                     align-items: center;
                     gap: 10px;
+                    width: 100%;
                 }
                 .page-label {
                     font-family: -apple-system, BlinkMacSystemFont, sans-serif;
@@ -380,7 +382,7 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
                     margin-bottom: 5px;
                 }
                 svg {
-                    max-width: 100%;
+                    width: 100%;
                     height: auto;
                     display: block;
                 }
