@@ -19,6 +19,7 @@ struct SVGMusicSheetView: View {
             SVGWebView(svgString: svgString)
                 .scaleEffect(scale)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .toolbar {
             ToolbarItemGroup {
                 Button(action: { scale = max(0.5, scale - 0.1) }) {
@@ -44,8 +45,10 @@ struct SVGWebView: View {
     var body: some View {
         #if os(macOS)
         SVGWebViewMac(svgString: svgString)
+            .frame(minWidth: 600, minHeight: 400)
         #else
         SVGWebViewiOS(svgString: svgString)
+            .frame(minWidth: 600, minHeight: 400)
         #endif
     }
 }
@@ -62,6 +65,9 @@ struct SVGWebViewMac: NSViewRepresentable {
 
     func updateNSView(_ webView: WKWebView, context: Context) {
         let html = createHTML(svg: svgString)
+        print("SVGWebViewMac - Loading HTML, length: \(html.count)")
+        print("SVGWebViewMac - SVG length: \(svgString.count)")
+        print("SVGWebViewMac - HTML preview (first 800 chars): \(String(html.prefix(800)))")
         webView.loadHTMLString(html, baseURL: nil)
     }
 

@@ -17,9 +17,10 @@ struct ContentView: View {
     private let verovioService = VerovioService()
 
     var body: some View {
-        VStack {
+        VStack(spacing: 0) {
             if let svg = svgOutput {
                 SVGMusicSheetView(svgString: svg)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 VStack(spacing: 20) {
                     Image(systemName: "music.note.list")
@@ -111,6 +112,8 @@ struct ContentView: View {
 
             // Render with Verovio
             let svg = try verovioService.renderMusicXML(data: data)
+            print("ContentView received SVG, length: \(svg.count)")
+            print("SVG preview (first 500 chars): \(String(svg.prefix(500)))")
             svgOutput = svg
 
             // Extract title from filename if needed
