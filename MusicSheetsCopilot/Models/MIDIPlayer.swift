@@ -38,17 +38,27 @@ class MIDIPlayer: ObservableObject {
             return
         }
 
+        // Reset to beginning if we're at the end
+        if player.currentPosition >= player.duration {
+            player.currentPosition = 0
+            currentTime = 0
+        }
+
+        player.prepareToPlay()
         player.play {
             DispatchQueue.main.async {
                 self.isPlaying = false
-                self.currentTime = 0
                 self.stopTimer()
+                // Reset to beginning when finished
+                self.midiPlayer?.currentPosition = 0
+                self.currentTime = 0
+                print("MIDI playback finished")
             }
         }
 
         isPlaying = true
         startTimer()
-        print("MIDI playback started")
+        print("MIDI playback started from position: \(player.currentPosition)s")
     }
 
     /// Pause playback
