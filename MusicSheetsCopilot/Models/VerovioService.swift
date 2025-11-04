@@ -13,25 +13,38 @@ class VerovioService: ObservableObject {
     private let toolkit: VerovioToolkit
 
     private var lastLoadedMusicXML: String? = nil
+    var lastLoadedData: Data? = nil
 
-    /// Configuration options for rendering
+    @Published var availableParts: [(id: String, name: String)] = []
+    @Published var enabledPartIds: Set<String> = []    /// Configuration options for rendering
     struct RenderOptions {
         var pageWidth: Int = 2100
         var pageHeight: Int = 2970
         var scale: Int = 40
         var adjustPageHeight: Bool = true
         var breaks: String = "auto"
+        var enabledParts: [String]? = nil
 
         var jsonString: String {
-            """
+            var json = """
             {
                 "pageWidth": \(pageWidth),
                 "pageHeight": \(pageHeight),
                 "scale": \(scale),
                 "adjustPageHeight": \(adjustPageHeight),
                 "breaks": "\(breaks)"
-            }
             """
+
+            if let parts = enabledParts, !parts.isEmpty {
+                let partsJson = parts.map { "\"\($0)\"" }.joined(separator: ",")
+                json += """
+                ,
+                "appXPathQuery": ["//score-part[@id='\(parts.first!)']"]
+                """
+            }
+
+            json += "\n}"
+            return json
         }
     }
 
@@ -148,6 +161,9 @@ class VerovioService: ObservableObject {
             throw VerovioError.loadFailed(message: errorLog)
         }
 
+        // Extract available parts from the loaded score
+        extractAvailableParts(from: musicXMLString)
+
         // Render to SVG (page 1, no XML declaration)
         let svg = toolkit.renderToSVG(1, false)
         print("SVG output length: \(svg.count)")
@@ -169,12 +185,22 @@ class VerovioService: ObservableObject {
         toolkit.setOptions(options.jsonString)
 
         // Convert data to string
-        guard let musicXMLString = String(data: data, encoding: .utf8) else {
+        guard var musicXMLString = String(data: data, encoding: .utf8) else {
             throw VerovioError.invalidData
+        }
+
+        // Extract available parts from the ORIGINAL (unfiltered) score
+        // Always extract parts to ensure we reset state on new file load
+        extractAvailableParts(from: musicXMLString)
+
+        // Filter parts if needed
+        if !enabledPartIds.isEmpty && enabledPartIds.count < availableParts.count {
+            musicXMLString = filterParts(in: musicXMLString, enabledIds: enabledPartIds)
         }
 
         // Store for tempo extraction
         lastLoadedMusicXML = musicXMLString
+        lastLoadedData = data
 
         // Load the MusicXML
         let loadSuccess = toolkit.loadData(musicXMLString)
@@ -326,6 +352,62 @@ class VerovioService: ObservableObject {
         }
 
         return nil
+    }
+
+    /// Extract available parts from MusicXML
+    private func extractAvailableParts(from musicXML: String) {
+        var parts: [(String, String)] = []
+
+        // Parse the MusicXML to find <score-part> elements
+        let pattern = "<score-part id=\"([^\"]+)\">\\s*<part-name>([^<]+)</part-name>"
+        if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
+            let nsString = musicXML as NSString
+            let matches = regex.matches(in: musicXML, options: [], range: NSRange(location: 0, length: nsString.length))
+
+            for match in matches {
+                if match.numberOfRanges >= 3 {
+                    let idRange = match.range(at: 1)
+                    let nameRange = match.range(at: 2)
+
+                    if idRange.location != NSNotFound && nameRange.location != NSNotFound {
+                        let id = nsString.substring(with: idRange)
+                        let name = nsString.substring(with: nameRange)
+                        parts.append((id, name))
+                    }
+                }
+            }
+        }
+
+        DispatchQueue.main.async {
+            let newPartIds = Set(parts.map { $0.0 })
+            // Always update availableParts and enabledPartIds on new file load
+            self.availableParts = parts
+            self.enabledPartIds = newPartIds
+        }
+    }
+
+    /// Filter MusicXML to only include enabled parts
+    private func filterParts(in musicXML: String, enabledIds: Set<String>) -> String {
+        var filtered = musicXML
+
+        // Remove disabled parts from <part-list>
+        for (partId, _) in availableParts {
+            if !enabledIds.contains(partId) {
+                // Remove the score-part element
+                let scorePartPattern = "<score-part id=\"\(partId)\">.*?</score-part>"
+                if let regex = try? NSRegularExpression(pattern: scorePartPattern, options: [.dotMatchesLineSeparators]) {
+                    filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
+                }
+
+                // Remove the part element
+                let partPattern = "<part id=\"\(partId)\">.*?</part>"
+                if let regex = try? NSRegularExpression(pattern: partPattern, options: [.dotMatchesLineSeparators]) {
+                    filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
+                }
+            }
+        }
+
+        return filtered
     }
 }
 

@@ -209,6 +209,32 @@ struct ContentView: View {
 
                     Divider()
 
+                    // Parts/Staves selector (only show if multiple parts available)
+                    if verovioService.availableParts.count > 1 {
+                        Menu {
+                            ForEach(verovioService.availableParts, id: \.0) { partId, partName in
+                                Button(action: {
+                                    togglePart(partId)
+                                }) {
+                                    HStack {
+                                        if verovioService.enabledPartIds.contains(partId) {
+                                            Image(systemName: "checkmark")
+                                        }
+                                        Text(partName)
+                                    }
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "music.note.list")
+                                Text("\(verovioService.enabledPartIds.count)/\(verovioService.availableParts.count)")
+                            }
+                        }
+                        .help("Select Parts/Staves")
+
+                        Divider()
+                    }
+
                     Button("Load Another") {
                         isImporting = true
                     }
@@ -224,6 +250,41 @@ struct ContentView: View {
     private func setPlaybackRate(_ rate: Float) {
         midiPlayer.playbackRate = rate
         metronome.playbackRate = rate
+    }
+
+    private func togglePart(_ partId: String) {
+        if verovioService.enabledPartIds.contains(partId) {
+            // Don't allow disabling all parts
+            if verovioService.enabledPartIds.count > 1 {
+                verovioService.enabledPartIds.remove(partId)
+                reloadScore()
+            }
+        } else {
+            verovioService.enabledPartIds.insert(partId)
+            reloadScore()
+        }
+    }
+
+    private func reloadScore() {
+        // Reload the score with current enabled parts
+        guard let xmlData = verovioService.lastLoadedData else { return }
+
+        do {
+            let pages = try verovioService.renderAllPages(data: xmlData)
+            svgPages = pages
+
+            let timing = verovioService.getTimingMap()
+            timingData = timing
+
+            let midiString = verovioService.getMIDI()
+            if let midiData = Data(base64Encoded: midiString) {
+                try midiPlayer.loadMIDI(data: midiData)
+                let bpm = verovioService.getTempoBPM() ?? 120.0
+                metronome.bpm = bpm
+            }
+        } catch {
+            errorMessage = "Failed to reload score: \(error.localizedDescription)"
+        }
     }
 
     private func loadDemoFile() {
