@@ -16,7 +16,13 @@ class VerovioService: ObservableObject {
     var lastLoadedData: Data? = nil
 
     @Published var availableParts: [(id: String, name: String)] = []
-    @Published var enabledPartIds: Set<String> = []    /// Configuration options for rendering
+    @Published var enabledPartIds: Set<String> = []
+
+    // Staves support
+    @Published var availableStaves: [(partId: String, staffNumber: Int, name: String)] = []
+    @Published var enabledStaves: Set<String> = [] // Format: "partId-staffNumber"
+
+    /// Configuration options for rendering
     struct RenderOptions {
         var pageWidth: Int = 2100
         var pageHeight: Int = 2970
@@ -193,6 +199,11 @@ class VerovioService: ObservableObject {
         // Always extract parts to ensure we reset state on new file load
         extractAvailableParts(from: musicXMLString)
 
+        // Filter staves if needed
+        if !enabledStaves.isEmpty && enabledStaves.count < availableStaves.count {
+            musicXMLString = filterStaves(in: musicXMLString, enabledStaves: enabledStaves)
+        }
+
         // Filter parts if needed
         if !enabledPartIds.isEmpty && enabledPartIds.count < availableParts.count {
             musicXMLString = filterParts(in: musicXMLString, enabledIds: enabledPartIds)
@@ -201,6 +212,9 @@ class VerovioService: ObservableObject {
         // Store for tempo extraction
         lastLoadedMusicXML = musicXMLString
         lastLoadedData = data
+
+        // Extract parts and staves information
+        extractAvailableParts(from: musicXMLString)
 
         // Load the MusicXML
         let loadSuccess = toolkit.loadData(musicXMLString)
@@ -354,15 +368,16 @@ class VerovioService: ObservableObject {
         return nil
     }
 
-    /// Extract available parts from MusicXML
+    /// Extract available parts and staves from MusicXML
     private func extractAvailableParts(from musicXML: String) {
         var parts: [(String, String)] = []
+        var staves: [(String, Int, String)] = []
 
         // Parse the MusicXML to find <score-part> elements
-        let pattern = "<score-part id=\"([^\"]+)\">\\s*<part-name>([^<]+)</part-name>"
-        if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
+        let partPattern = "<score-part id=\"([^\"]+)\">\\s*<part-name>([^<]+)</part-name>"
+        if let partRegex = try? NSRegularExpression(pattern: partPattern, options: []) {
             let nsString = musicXML as NSString
-            let matches = regex.matches(in: musicXML, options: [], range: NSRange(location: 0, length: nsString.length))
+            let matches = partRegex.matches(in: musicXML, options: [], range: NSRange(location: 0, length: nsString.length))
 
             for match in matches {
                 if match.numberOfRanges >= 3 {
@@ -373,6 +388,17 @@ class VerovioService: ObservableObject {
                         let id = nsString.substring(with: idRange)
                         let name = nsString.substring(with: nameRange)
                         parts.append((id, name))
+
+                        // Now find how many staves this part has
+                        let staffCount = extractStaffCount(from: musicXML, partId: id)
+
+                        if staffCount > 1 {
+                            // Multiple staves - create separate entries for each
+                            for staffNum in 1...staffCount {
+                                let staffName = "\(name) - \(staffNum == 1 ? "Treble" : staffNum == 2 ? "Bass" : "Staff \(staffNum)")"
+                                staves.append((id, staffNum, staffName))
+                            }
+                        }
                     }
                 }
             }
@@ -383,7 +409,117 @@ class VerovioService: ObservableObject {
             // Always update availableParts and enabledPartIds on new file load
             self.availableParts = parts
             self.enabledPartIds = newPartIds
+
+            // Update staves
+            self.availableStaves = staves
+            if !staves.isEmpty {
+                // Enable all staves by default
+                self.enabledStaves = Set(staves.map { "\($0.0)-\($0.1)" })
+            }
         }
+    }
+
+    /// Extract the number of staves for a given part
+    private func extractStaffCount(from musicXML: String, partId: String) -> Int {
+        // Find the <part id="partId"> section and look for <staves> element
+        let partSectionPattern = "<part id=\"\(partId)\">.*?</part>"
+        guard let partRegex = try? NSRegularExpression(pattern: partSectionPattern, options: [.dotMatchesLineSeparators]) else {
+            return 1
+        }
+
+        let nsString = musicXML as NSString
+        guard let partMatch = partRegex.firstMatch(in: musicXML, options: [], range: NSRange(location: 0, length: nsString.length)) else {
+            return 1
+        }
+
+        let partSection = nsString.substring(with: partMatch.range)
+
+        // Look for <staves>N</staves>
+        let stavesPattern = "<staves>(\\d+)</staves>"
+        guard let stavesRegex = try? NSRegularExpression(pattern: stavesPattern, options: []) else {
+            return 1
+        }
+
+        let stavesNsString = partSection as NSString
+        if let stavesMatch = stavesRegex.firstMatch(in: partSection, options: [], range: NSRange(location: 0, length: stavesNsString.length)),
+           stavesMatch.numberOfRanges >= 2 {
+            let countRange = stavesMatch.range(at: 1)
+            let countString = stavesNsString.substring(with: countRange)
+            return Int(countString) ?? 1
+        }
+
+        return 1
+    }
+
+    /// Filter staves within parts - removes disabled staves from the MusicXML
+    private func filterStaves(in musicXML: String, enabledStaves: Set<String>) -> String {
+        var filtered = musicXML
+
+        // Group enabled staves by part
+        var enabledByPart: [String: Set<Int>] = [:]
+        for staveKey in enabledStaves {
+            let components = staveKey.split(separator: "-")
+            if components.count == 2,
+               let staffNum = Int(components[1]) {
+                let partId = String(components[0])
+                enabledByPart[partId, default: Set()].insert(staffNum)
+            }
+        }
+
+        // For each part with multiple staves, filter the disabled ones
+        for (partId, staffNumber, _) in availableStaves {
+            let staveKey = "\(partId)-\(staffNumber)"
+            if !enabledStaves.contains(staveKey) {
+                // This staff is disabled - remove all elements with this staff number
+                filtered = removeStaffElements(from: filtered, partId: partId, staffNumber: staffNumber)
+            }
+        }
+
+        // Update the <staves> count in attributes for each part
+        for (partId, enabledStaffNums) in enabledByPart {
+            let enabledCount = enabledStaffNums.count
+            if enabledCount > 0 {
+                // Find and update <staves>N</staves> in the attributes section
+                let stavesPattern = "(<part id=\"\(partId)\">.*?<attributes>.*?)<staves>\\d+</staves>"
+                if let regex = try? NSRegularExpression(pattern: stavesPattern, options: [.dotMatchesLineSeparators]) {
+                    let template = "$1<staves>\(enabledCount)</staves>"
+                    filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: template)
+                }
+            }
+        }
+
+        return filtered
+    }
+
+    /// Remove all elements belonging to a specific staff number within a part
+    private func removeStaffElements(from musicXML: String, partId: String, staffNumber: Int) -> String {
+        var filtered = musicXML
+
+        // Remove <note> elements with <staff>N</staff>
+        let notePattern = "<note>.*?<staff>\(staffNumber)</staff>.*?</note>"
+        if let regex = try? NSRegularExpression(pattern: notePattern, options: [.dotMatchesLineSeparators]) {
+            filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
+        }
+
+        // Remove <forward> elements with <staff>N</staff>
+        let forwardPattern = "<forward>.*?<staff>\(staffNumber)</staff>.*?</forward>"
+        if let regex = try? NSRegularExpression(pattern: forwardPattern, options: [.dotMatchesLineSeparators]) {
+            filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
+        }
+
+        // Remove <backup> elements with <staff>N</staff>
+        let backupPattern = "<backup>.*?<staff>\(staffNumber)</staff>.*?</backup>"
+        if let regex = try? NSRegularExpression(pattern: backupPattern, options: [.dotMatchesLineSeparators]) {
+            filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
+        }
+
+        // Remove <clef> elements with number=N
+        let clefPattern = "<clef number=\"\(staffNumber)\">.*?</clef>"
+        if let regex = try? NSRegularExpression(pattern: clefPattern, options: [.dotMatchesLineSeparators]) {
+            filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
+        }
+
+        return filtered
     }
 
     /// Filter MusicXML to only include enabled parts

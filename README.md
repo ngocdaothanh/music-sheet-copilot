@@ -8,11 +8,14 @@ A universal iOS and macOS app for viewing MusicXML sheet music files, powered by
 - 🎵 Load and parse MusicXML files with **Verovio**
 - 📦 **Compressed MusicXML (.mxl) support** on macOS
 -  Professional music sheet rendering (SVG-based)
-- 🎹 Demo file included (Twinkle Twinkle Little Star)
+- 🎹 Demo files included:
+  - Twinkle Twinkle Little Star (Traditional)
+  - Für Elise - Easy Piano (Beethoven)
 - 🔍 Zoom controls for better viewing
 - 🎼 **MIDI playback** with play/pause controls
 - 🎯 **Interactive note highlighting** during playback
 - 👆 **Click-to-play**: Click any note to start playback from that point
+- 🎹 **Staff toggling**: For piano pieces, toggle between treble and bass staves for practice
 - 🥁 **Metronome** with three modes:
   - 🔊 Tick mode: Traditional metronome sound
   - 🔢 Count mode: Speaks beat numbers (1, 2, 3, 4)
@@ -90,5 +93,7 @@ Planned features:
 ## Acknowledgments
 
 - Music notation rendering: [Verovio](https://www.verovio.org/) by RISM Digital
-- Demo piece: "Twinkle Twinkle Little Star" (Traditional)
+- Demo pieces:
+  - "Twinkle Twinkle Little Star" (Traditional)
+  - "Für Elise" by Ludwig van Beethoven (Simplified arrangement)
 - MusicXML format by MakeMusic/Steinberg
