@@ -18,6 +18,7 @@ class Metronome: ObservableObject {
     }
     @Published var timeSignature: (Int, Int) = (4, 4)
     @Published var mode: MetronomeMode = .tick
+    @Published var currentBeat: Int = 0  // Expose current beat position (0-indexed)
 
     private var audioPlayer: AVAudioPlayer?
     private var timer: Timer?
@@ -94,18 +95,26 @@ class Metronome: ObservableObject {
         guard isEnabled else { return }
         isTicking = true
         tickCount = 0
+        currentBeat = 0  // Reset visual beat indicator
         lastSpokenTime = -1
         lastSpokenNotes = []
 
         // Play an immediate tick/count when starting
         if mode == .tick {
             playTickSound()
-        } else if mode == .counting {
-            speakCount()
             // Increment tickCount so the timer continues from the next beat
             tickCount += 1
             if tickCount >= timeSignature.0 {
                 tickCount = 0
+            }
+        } else if mode == .counting {
+            speakCount()
+            // Increment tickCount and currentBeat so the timer continues from the next beat
+            tickCount += 1
+            currentBeat = 1
+            if tickCount >= timeSignature.0 {
+                tickCount = 0
+                currentBeat = 0
             }
         }
 
@@ -114,6 +123,7 @@ class Metronome: ObservableObject {
 
     func stop() {
         isTicking = false
+        currentBeat = 0  // Reset visual beat indicator
         timer?.invalidate()
         timer = nil
         lastSpokenTime = -1
@@ -142,6 +152,7 @@ class Metronome: ObservableObject {
         switch mode {
         case .tick:
             playTickSound()
+            currentBeat = tickCount  // Update visual indicator before incrementing
             tickCount += 1
             if tickCount >= timeSignature.0 {
                 tickCount = 0
@@ -149,6 +160,7 @@ class Metronome: ObservableObject {
         case .solfege:
             speakNotesAtCurrentTime()
         case .counting:
+            currentBeat = tickCount  // Update visual indicator before incrementing
             speakCount()
             tickCount += 1
             if tickCount >= timeSignature.0 {

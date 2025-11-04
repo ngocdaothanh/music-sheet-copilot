@@ -26,6 +26,10 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             if let pages = svgPages, let timing = timingData {
+                // Metronome visual indicator
+                MetronomeVisualView(metronome: metronome)
+                    .padding(.top, 8)
+
                 MultiPageSVGMusicSheetView(svgPages: pages, timingData: timing, midiPlayer: midiPlayer)
                     .environmentObject(verovioService)
                     .environmentObject(midiPlayer)
