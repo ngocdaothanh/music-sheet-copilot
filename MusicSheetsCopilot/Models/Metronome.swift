@@ -32,6 +32,7 @@ class Metronome: ObservableObject {
     // Reference to MIDIPlayer for getting current notes
     weak var midiPlayer: MIDIPlayer?
     private var lastSpokenTime: TimeInterval = -1
+    private var lastSpokenNotes: Set<UInt8> = []
 
     // Map MIDI note number to solfege syllable
     // MIDI notes: C=0, C#=1, D=2, D#=3, E=4, F=5, F#=6, G=7, G#=8, A=9, A#=10, B=11
@@ -99,6 +100,7 @@ class Metronome: ObservableObject {
         isTicking = true
         tickCount = 0
         lastSpokenTime = -1
+        lastSpokenNotes = []
 
         // Play an immediate tick/count when starting in beat or counting mode
         if mode == .tick {
@@ -115,6 +117,7 @@ class Metronome: ObservableObject {
         timer?.invalidate()
         timer = nil
         lastSpokenTime = -1
+        lastSpokenNotes = []
         if speechSynthesizer.isSpeaking {
             speechSynthesizer.stopSpeaking(at: .immediate)
         }
@@ -170,15 +173,27 @@ class Metronome: ObservableObject {
 
         let currentTime = player.currentTime
 
-        // Prevent speaking the same notes multiple times
-        // Only speak if we've moved to a significantly different time
-        if abs(currentTime - lastSpokenTime) < 0.08 {
+        let notes = player.getNotesAtTime(currentTime)
+
+        guard !notes.isEmpty else {
+            // If no notes are playing, clear the last spoken notes
+            if !lastSpokenNotes.isEmpty {
+                lastSpokenNotes = []
+            }
             return
         }
 
-        let notes = player.getNotesAtTime(currentTime)
+        let currentNotesSet = Set(notes)
 
-        guard !notes.isEmpty else { return }
+        // Only speak if we have NEW notes (different from what we last spoke)
+        if currentNotesSet == lastSpokenNotes {
+            return
+        }
+
+        // Also check time to avoid speaking too frequently even if notes changed
+        if abs(currentTime - lastSpokenTime) < 0.15 {
+            return
+        }
 
         // Get unique solfege syllables for the notes
         let syllables = notes.map { midiNoteToSolfege($0) }
@@ -187,6 +202,7 @@ class Metronome: ObservableObject {
         // Speak the note names
         if !uniqueSyllables.isEmpty {
             lastSpokenTime = currentTime
+            lastSpokenNotes = currentNotesSet
             let text = uniqueSyllables.joined(separator: " ")
 
             let utterance = AVSpeechUtterance(string: text)
