@@ -13,6 +13,7 @@ A universal iOS and macOS app for viewing MusicXML sheet music files, powered by
 - 🎼 **MIDI playback** with play/pause controls
 - 🎯 **Interactive note highlighting** during playback
 - 👆 **Click-to-play**: Click any note to start playback from that point
+- 🥁 **Metronome**: Optional metronome that syncs with the score's tempo
 - ⚡ High-quality output used by academic institutions worldwide
 
 ## Technology Stack

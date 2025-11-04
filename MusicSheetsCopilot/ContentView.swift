@@ -8,6 +8,11 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+import AVFoundation
+
+// Add metronome support
+import Combine
+
 struct ContentView: View {
     @State private var svgPages: [String]?
     @State private var timingData: String?
@@ -16,6 +21,9 @@ struct ContentView: View {
     @State private var errorMessage: String?
     @StateObject private var midiPlayer = MIDIPlayer()
     @StateObject private var verovioService = VerovioService()
+
+    @StateObject private var metronome = Metronome()
+    @State private var metronomeCancellable: AnyCancellable?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -72,6 +80,12 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .openDocument)) { _ in
             isImporting = true
         }
+        .onChange(of: midiPlayer.isPlaying) { isPlaying in
+            // Stop metronome when playback stops (e.g., when song finishes)
+            if !isPlaying && metronome.isTicking {
+                metronome.stop()
+            }
+        }
         .navigationTitle(documentTitle)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -82,6 +96,15 @@ struct ContentView: View {
                     // Play/Pause button
                     Button(action: {
                         midiPlayer.togglePlayPause()
+                        // Sync metronome with playback
+                        if midiPlayer.isPlaying {
+                            // Set BPM from VerovioService if available, else default
+                            let bpm = verovioService.getTempoBPM() ?? 120.0
+                            metronome.bpm = bpm
+                            metronome.start()
+                        } else {
+                            metronome.stop()
+                        }
                     }) {
                         Image(systemName: midiPlayer.isPlaying ? "pause.circle.fill" : "play.circle.fill")
                             .font(.title2)
@@ -89,6 +112,22 @@ struct ContentView: View {
                     .help(midiPlayer.isPlaying ? "Pause" : "Play")
 
                     Divider()
+
+                    // Metronome toggle
+                    Toggle(isOn: $metronome.isEnabled) {
+                        Image(systemName: "metronome")
+                    }
+                    .toggleStyle(.button)
+                    .help(metronome.isEnabled ? "Disable Metronome" : "Enable Metronome")
+                    .onChange(of: metronome.isEnabled) { enabled in
+                        if enabled && midiPlayer.isPlaying {
+                            let bpm = verovioService.getTempoBPM() ?? 120.0
+                            metronome.bpm = bpm
+                            metronome.start()
+                        } else {
+                            metronome.stop()
+                        }
+                    }
 
                     Button("Load Another") {
                         isImporting = true
@@ -152,6 +191,9 @@ struct ContentView: View {
             if let midiData = Data(base64Encoded: midiString) {
                 try midiPlayer.loadMIDI(data: midiData)
                 print("MIDI loaded successfully")
+                // Set metronome BPM from VerovioService if available
+                let bpm = verovioService.getTempoBPM() ?? 120.0
+                metronome.bpm = bpm
             } else {
                 print("Failed to decode MIDI data from base64")
             }

@@ -12,6 +12,8 @@ import VerovioToolkit
 class VerovioService: ObservableObject {
     private let toolkit: VerovioToolkit
 
+    private var lastLoadedMusicXML: String? = nil
+
     /// Configuration options for rendering
     struct RenderOptions {
         var pageWidth: Int = 2100
@@ -128,6 +130,9 @@ class VerovioService: ObservableObject {
             throw VerovioError.invalidData
         }
 
+        // Store for tempo extraction
+        lastLoadedMusicXML = musicXMLString
+
         // Debug: Print first 200 chars of MusicXML
         print("Loading MusicXML (first 200 chars):")
         print(String(musicXMLString.prefix(200)))
@@ -167,6 +172,9 @@ class VerovioService: ObservableObject {
         guard let musicXMLString = String(data: data, encoding: .utf8) else {
             throw VerovioError.invalidData
         }
+
+        // Store for tempo extraction
+        lastLoadedMusicXML = musicXMLString
 
         // Load the MusicXML
         let loadSuccess = toolkit.loadData(musicXMLString)
@@ -220,6 +228,34 @@ class VerovioService: ObservableObject {
     func getTimingMap() -> String {
         // renderToTimemap requires an options parameter (empty string for defaults)
         return toolkit.renderToTimemap("")
+    }
+
+    /// Try to extract the tempo (BPM) from the loaded MusicXML, if available
+    /// Returns nil if not found
+    func getTempoBPM() -> Double? {
+        // Try to get from toolkit if available (future-proof)
+        // If not, parse lastLoadedMusicXML
+        guard let xml = lastLoadedMusicXML else { return nil }
+
+        // Look for <sound tempo="..."> or <direction-type><metronome>...
+        // Simple regex for tempo attribute
+        if let tempoMatch = xml.range(of: "tempo=\"([0-9]+(\\.[0-9]+)?)\"", options: .regularExpression) {
+            let tempoString = String(xml[tempoMatch]).replacingOccurrences(of: "tempo=\"", with: "").replacingOccurrences(of: "\"", with: "")
+            if let bpm = Double(tempoString) {
+                return bpm
+            }
+        }
+
+        // Try to find <per-minute> value in <metronome>
+        if let perMinuteRange = xml.range(of: "<per-minute>([0-9]+(\\.[0-9]+)?)</per-minute>", options: .regularExpression) {
+            let match = xml[perMinuteRange]
+            let numberString = match.replacingOccurrences(of: "<per-minute>", with: "").replacingOccurrences(of: "</per-minute>", with: "")
+            if let bpm = Double(numberString) {
+                return bpm
+            }
+        }
+
+        return nil
     }
 
     /// Extract measure start times from timing data
