@@ -9,14 +9,17 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ContentView: View {
-    @State private var musicScore: MusicScore?
+    @State private var svgOutput: String?
+    @State private var documentTitle: String = "Music Sheets"
     @State private var isImporting = false
     @State private var errorMessage: String?
 
+    private let verovioService = VerovioService()
+
     var body: some View {
         VStack {
-            if let score = musicScore {
-                MusicSheetView(score: score)
+            if let svg = svgOutput {
+                SVGMusicSheetView(svgString: svg)
             } else {
                 VStack(spacing: 20) {
                     Image(systemName: "music.note.list")
@@ -61,13 +64,13 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .openDocument)) { _ in
             isImporting = true
         }
-        .navigationTitle(musicScore?.title ?? "Music Sheets")
+        .navigationTitle(documentTitle)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .toolbar {
             ToolbarItemGroup {
-                if musicScore != nil {
+                if svgOutput != nil {
                     Button("Load Another") {
                         isImporting = true
                     }
@@ -100,15 +103,24 @@ struct ContentView: View {
     }
 
     private func loadMusicXML(from url: URL) {
+        print("loadMusicXML")
         errorMessage = nil
 
         do {
             let data = try Data(contentsOf: url)
-            let parser = MusicXMLParser()
-            musicScore = try parser.parse(data: data)
+
+            // Render with Verovio
+            let svg = try verovioService.renderMusicXML(data: data)
+            svgOutput = svg
+
+            // Extract title from filename if needed
+            documentTitle = url.deletingPathExtension().lastPathComponent
+                .replacingOccurrences(of: "_", with: " ")
+                .capitalized
+
         } catch {
-            errorMessage = "Failed to parse MusicXML: \(error.localizedDescription)"
-            musicScore = nil
+            errorMessage = "Failed to render MusicXML: \(error.localizedDescription)"
+            svgOutput = nil
         }
     }
 }

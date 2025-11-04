@@ -14,6 +14,9 @@
 		E1A009 /* MusicScore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A010 /* MusicScore.swift */; };
 		E1A011 /* MusicSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A012 /* MusicSheetView.swift */; };
 		E1A013 /* twinkle_twinkle.xml in Resources */ = {isa = PBXBuildFile; fileRef = E1A014 /* twinkle_twinkle.xml */; };
+		E1A034 /* Verovio in Frameworks */ = {isa = PBXBuildFile; productRef = E1A035 /* VerovioToolkit */; };
+		E1A037 /* VerovioService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A038 /* VerovioService.swift */; };
+		E1A039 /* SVGMusicSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A040 /* SVGMusicSheetView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -26,6 +29,8 @@
 		E1A012 /* MusicSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicSheetView.swift; sourceTree = "<group>"; };
 		E1A014 /* twinkle_twinkle.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = twinkle_twinkle.xml; sourceTree = "<group>"; };
 		E1A016 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		E1A038 /* VerovioService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerovioService.swift; sourceTree = "<group>"; };
+		E1A040 /* SVGMusicSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SVGMusicSheetView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -33,6 +38,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E1A034 /* Verovio in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -82,6 +88,7 @@
 			children = (
 				E1A008 /* MusicXMLParser.swift */,
 				E1A010 /* MusicScore.swift */,
+				E1A038 /* VerovioService.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -90,6 +97,7 @@
 			isa = PBXGroup;
 			children = (
 				E1A012 /* MusicSheetView.swift */,
+				E1A040 /* SVGMusicSheetView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -111,6 +119,7 @@
 			);
 			name = MusicSheetsCopilot;
 			packageProductDependencies = (
+				E1A035 /* VerovioToolkit */,
 			);
 			productName = MusicSheetsCopilot;
 			productReference = E1A015 /* MusicSheetsCopilot.app */;
@@ -141,6 +150,7 @@
 			);
 			mainGroup = E1A018;
 			packageReferences = (
+				E1A036 /* XCRemoteSwiftPackageReference "verovio" */,
 			);
 			productRefGroup = E1A020 /* Products */;
 			projectDirPath = "";
@@ -173,6 +183,8 @@
 				E1A009 /* MusicScore.swift in Sources */,
 				E1A011 /* MusicSheetView.swift in Sources */,
 				E1A001 /* MusicSheetsCopilotApp.swift in Sources */,
+				E1A037 /* VerovioService.swift in Sources */,
+				E1A039 /* SVGMusicSheetView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -397,6 +409,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		E1A036 /* XCRemoteSwiftPackageReference "verovio" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/rism-digital/verovio.git";
+			requirement = {
+				branch = master;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		E1A035 /* VerovioToolkit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E1A036 /* XCRemoteSwiftPackageReference "verovio" */;
+			productName = VerovioToolkit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = E1A028 /* Project object */;
 }
