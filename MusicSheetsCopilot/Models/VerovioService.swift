@@ -340,29 +340,54 @@ class VerovioService: ObservableObject {
         var staves: [(String, Int, String)] = []
 
         // Parse the MusicXML to find <score-part> elements
-        let partPattern = "<score-part id=\"([^\"]+)\">\\s*<part-name>([^<]+)</part-name>"
-        if let partRegex = try? NSRegularExpression(pattern: partPattern, options: []) {
+        // Pattern to match the entire score-part section
+        let scorePartPattern = "<score-part id=\"([^\"]+)\">.*?</score-part>"
+        if let scorePartRegex = try? NSRegularExpression(pattern: scorePartPattern, options: [.dotMatchesLineSeparators]) {
             let nsString = musicXML as NSString
-            let matches = partRegex.matches(in: musicXML, options: [], range: NSRange(location: 0, length: nsString.length))
+            let matches = scorePartRegex.matches(in: musicXML, options: [], range: NSRange(location: 0, length: nsString.length))
 
             for match in matches {
-                if match.numberOfRanges >= 3 {
+                if match.numberOfRanges >= 2 {
                     let idRange = match.range(at: 1)
-                    let nameRange = match.range(at: 2)
+                    let scorePartRange = match.range
 
-                    if idRange.location != NSNotFound && nameRange.location != NSNotFound {
+                    if idRange.location != NSNotFound {
                         let id = nsString.substring(with: idRange)
-                        let name = nsString.substring(with: nameRange)
-                        parts.append((id, name))
+                        let scorePartSection = nsString.substring(with: scorePartRange)
 
-                        // Now find how many staves this part has
-                        let staffCount = extractStaffCount(from: musicXML, partId: id)
+                        // Try to extract display name first, fall back to part-name
+                        var name = ""
 
-                        if staffCount > 1 {
-                            // Multiple staves - create separate entries for each
-                            for staffNum in 1...staffCount {
-                                let staffName = "\(name) - \(staffNum == 1 ? "Treble" : staffNum == 2 ? "Bass" : "Staff \(staffNum)")"
-                                staves.append((id, staffNum, staffName))
+                        // Look for <part-name-display><display-text>...</display-text>
+                        let displayNamePattern = "<part-name-display>\\s*<display-text>([^<]+)</display-text>"
+                        if let displayRegex = try? NSRegularExpression(pattern: displayNamePattern, options: []),
+                           let displayMatch = displayRegex.firstMatch(in: scorePartSection, options: [], range: NSRange(location: 0, length: (scorePartSection as NSString).length)),
+                           displayMatch.numberOfRanges >= 2 {
+                            let displayNameRange = displayMatch.range(at: 1)
+                            name = (scorePartSection as NSString).substring(with: displayNameRange)
+                        } else {
+                            // Fall back to <part-name>
+                            let partNamePattern = "<part-name>([^<]+)</part-name>"
+                            if let nameRegex = try? NSRegularExpression(pattern: partNamePattern, options: []),
+                               let nameMatch = nameRegex.firstMatch(in: scorePartSection, options: [], range: NSRange(location: 0, length: (scorePartSection as NSString).length)),
+                               nameMatch.numberOfRanges >= 2 {
+                                let nameRange = nameMatch.range(at: 1)
+                                name = (scorePartSection as NSString).substring(with: nameRange)
+                            }
+                        }
+
+                        if !name.isEmpty {
+                            parts.append((id, name))
+
+                            // Now find how many staves this part has
+                            let staffCount = extractStaffCount(from: musicXML, partId: id)
+
+                            if staffCount > 1 {
+                                // Multiple staves - create separate entries for each
+                                for staffNum in 1...staffCount {
+                                    let staffName = "\(name) - \(staffNum == 1 ? "Treble" : staffNum == 2 ? "Bass" : "Staff \(staffNum)")"
+                                    staves.append((id, staffNum, staffName))
+                                }
                             }
                         }
                     }
