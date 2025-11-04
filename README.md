@@ -6,14 +6,18 @@ A universal iOS and macOS app for viewing MusicXML sheet music files, powered by
 
 - 📱 Universal app: Works on iPhone, iPad, and macOS
 - 🎵 Load and parse MusicXML files with **Verovio**
-- � **Compressed MusicXML (.mxl) support** on macOS
-- �📄 Professional music sheet rendering (SVG-based)
+- 📦 **Compressed MusicXML (.mxl) support** on macOS
+-  Professional music sheet rendering (SVG-based)
 - 🎹 Demo file included (Twinkle Twinkle Little Star)
 - 🔍 Zoom controls for better viewing
 - 🎼 **MIDI playback** with play/pause controls
 - 🎯 **Interactive note highlighting** during playback
 - 👆 **Click-to-play**: Click any note to start playback from that point
-- 🥁 **Metronome**: Optional metronome that syncs with the score's tempo
+- 🥁 **Metronome** with three modes:
+  - 🔊 Tick mode: Traditional metronome sound
+  - 🔢 Count mode: Speaks beat numbers (1, 2, 3, 4)
+  - 🎵 Solfege mode: Speaks note names (Do, Re, Mi)
+- ⚙️ **Tempo adjustment**: Slow down (0.5x) or speed up (2.0x) playback for practice
 - ⚡ High-quality output used by academic institutions worldwide
 
 ## Technology Stack

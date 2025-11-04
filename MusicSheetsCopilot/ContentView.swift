@@ -177,6 +177,38 @@ struct ContentView: View {
                         .help("Metronome Mode")
                     }
 
+                    Divider()
+
+                    // Tempo adjustment
+                    Menu {
+                        Button("0.5x (Half Speed)") {
+                            setPlaybackRate(0.5)
+                        }
+                        Button("0.75x") {
+                            setPlaybackRate(0.75)
+                        }
+                        Button("1.0x (Normal)") {
+                            setPlaybackRate(1.0)
+                        }
+                        Button("1.25x") {
+                            setPlaybackRate(1.25)
+                        }
+                        Button("1.5x") {
+                            setPlaybackRate(1.5)
+                        }
+                        Button("2.0x (Double Speed)") {
+                            setPlaybackRate(2.0)
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "gauge.with.dots.needle.50percent")
+                            Text(String(format: "%.2fx", midiPlayer.playbackRate))
+                        }
+                    }
+                    .help("Adjust Playback Speed")
+
+                    Divider()
+
                     Button("Load Another") {
                         isImporting = true
                     }
@@ -187,6 +219,11 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    private func setPlaybackRate(_ rate: Float) {
+        midiPlayer.playbackRate = rate
+        metronome.playbackRate = rate
     }
 
     private func loadDemoFile() {

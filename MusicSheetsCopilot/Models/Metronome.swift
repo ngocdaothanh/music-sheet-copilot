@@ -18,6 +18,9 @@ class Metronome: ObservableObject {
     @Published var bpm: Double = 120.0 {
         didSet { updateTimer() }
     }
+    @Published var playbackRate: Float = 1.0 {
+        didSet { updateTimer() }
+    }
     @Published var timeSignature: (Int, Int) = (4, 4)
     @Published var mode: MetronomeMode = .tick
 
@@ -121,8 +124,11 @@ class Metronome: ObservableObject {
         timer?.invalidate()
         guard isEnabled && isTicking else { return }
 
+        // Adjust BPM by playback rate
+        let adjustedBPM = bpm * Double(playbackRate)
+
         // When using solfege names, check more frequently to catch note events
-        let interval = mode == .solfege ? 0.05 : (60.0 / bpm)
+        let interval = mode == .solfege ? 0.05 : (60.0 / adjustedBPM)
 
         timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             self?.tick()

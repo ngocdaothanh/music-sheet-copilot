@@ -14,6 +14,11 @@ class MIDIPlayer: ObservableObject {
     @Published var isPlaying = false
     @Published var currentTime: TimeInterval = 0
     @Published var duration: TimeInterval = 0
+    @Published var playbackRate: Float = 1.0 {
+        didSet {
+            midiPlayer?.rate = playbackRate
+        }
+    }
 
     private var midiPlayer: AVMIDIPlayer?
     private var updateTimer: Timer?
@@ -26,6 +31,7 @@ class MIDIPlayer: ObservableObject {
 
         do {
             midiPlayer = try AVMIDIPlayer(data: data, soundBankURL: nil)
+            midiPlayer?.rate = playbackRate
             duration = midiPlayer?.duration ?? 0
             midiData = data
             noteEvents = parseMIDINoteEvents(data: data)
@@ -52,6 +58,9 @@ class MIDIPlayer: ObservableObject {
         }
 
         player.prepareToPlay()
+
+        // Ensure playback rate is set
+        player.rate = playbackRate
 
         // Set position AFTER prepareToPlay if specified
         if let startPosition = fromPosition {
