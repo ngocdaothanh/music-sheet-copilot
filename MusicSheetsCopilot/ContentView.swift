@@ -25,6 +25,11 @@ struct ContentView: View {
     @StateObject private var metronome = Metronome()
     @State private var metronomeCancellable: AnyCancellable?
 
+    init() {
+        // Can't set metronome.midiPlayer in init with @StateObject
+        // Will set it in onAppear
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             if let pages = svgPages, let timing = timingData {
@@ -86,6 +91,10 @@ struct ContentView: View {
                 metronome.stop()
             }
         }
+        .onAppear {
+            // Set the MIDIPlayer reference for the metronome
+            metronome.midiPlayer = midiPlayer
+        }
         .navigationTitle(documentTitle)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -126,6 +135,22 @@ struct ContentView: View {
                             metronome.start()
                         } else {
                             metronome.stop()
+                        }
+                    }
+
+                    // Solfege toggle (only show when metronome is enabled)
+                    if metronome.isEnabled {
+                        Toggle(isOn: $metronome.useSolfegeNames) {
+                            Text("Do Re Mi")
+                        }
+                        .toggleStyle(.button)
+                        .help(metronome.useSolfegeNames ? "Use Beat Sound" : "Use Solfege Names (Do Re Mi)")
+                        .onChange(of: metronome.useSolfegeNames) { _ in
+                            // Restart timer with appropriate interval for the mode
+                            if metronome.isTicking {
+                                metronome.stop()
+                                metronome.start()
+                            }
                         }
                     }
 

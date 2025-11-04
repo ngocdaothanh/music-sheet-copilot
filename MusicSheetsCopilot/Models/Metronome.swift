@@ -13,10 +13,37 @@ class Metronome: ObservableObject {
         didSet { updateTimer() }
     }
     @Published var timeSignature: (Int, Int) = (4, 4)
+    @Published var useSolfegeNames: Bool = false // Do Re Mi Fa Sol La Si
 
     private var audioPlayer: AVAudioPlayer?
     private var timer: Timer?
     private var tickCount: Int = 0
+    private var speechSynthesizer = AVSpeechSynthesizer()
+
+    // Reference to MIDIPlayer for getting current notes
+    weak var midiPlayer: MIDIPlayer?
+    private var lastSpokenTime: TimeInterval = -1
+
+    // Map MIDI note number to solfege syllable
+    // MIDI notes: C=0, C#=1, D=2, D#=3, E=4, F=5, F#=6, G=7, G#=8, A=9, A#=10, B=11
+    private func midiNoteToSolfege(_ midiNote: UInt8) -> String {
+        let noteInOctave = Int(midiNote) % 12
+        let solfegeMap = [
+            "Do",  // C
+            "Do",  // C# (same as C)
+            "Re",  // D
+            "Re",  // D# (same as D)
+            "Mi",  // E
+            "Fa",  // F
+            "Fa",  // F# (same as F)
+            "Sol", // G
+            "Sol", // G# (same as G)
+            "La",  // A
+            "La",  // A# (same as A)
+            "Si"   // B
+        ]
+        return solfegeMap[noteInOctave]
+    }
 
     // Provide a short tick sound (440Hz sine wave, 0.05s)
     private static func tickSoundData() -> Data {
@@ -62,6 +89,7 @@ class Metronome: ObservableObject {
         guard isEnabled else { return }
         isTicking = true
         tickCount = 0
+        lastSpokenTime = -1
         updateTimer()
     }
 
@@ -69,22 +97,33 @@ class Metronome: ObservableObject {
         isTicking = false
         timer?.invalidate()
         timer = nil
+        lastSpokenTime = -1
+        if speechSynthesizer.isSpeaking {
+            speechSynthesizer.stopSpeaking(at: .immediate)
+        }
     }
 
     private func updateTimer() {
         timer?.invalidate()
         guard isEnabled && isTicking else { return }
-        let interval = 60.0 / bpm
+
+        // When using solfege names, check more frequently to catch note events
+        let interval = useSolfegeNames ? 0.05 : (60.0 / bpm)
+
         timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             self?.tick()
         }
     }
 
     private func tick() {
-        playTickSound()
-        tickCount += 1
-        if tickCount >= timeSignature.0 {
-            tickCount = 0
+        if useSolfegeNames {
+            speakNotesAtCurrentTime()
+        } else {
+            playTickSound()
+            tickCount += 1
+            if tickCount >= timeSignature.0 {
+                tickCount = 0
+            }
         }
     }
 
@@ -96,6 +135,44 @@ class Metronome: ObservableObject {
             audioPlayer?.play()
         } catch {
             print("Failed to play metronome tick: \(error)")
+        }
+    }
+
+    private func speakNotesAtCurrentTime() {
+        guard let player = midiPlayer else { return }
+
+        let currentTime = player.currentTime
+
+        // Prevent speaking the same notes multiple times
+        // Only speak if we've moved to a significantly different time
+        if abs(currentTime - lastSpokenTime) < 0.08 {
+            return
+        }
+
+        let notes = player.getNotesAtTime(currentTime)
+
+        guard !notes.isEmpty else { return }
+
+        // Get unique solfege syllables for the notes
+        let syllables = notes.map { midiNoteToSolfege($0) }
+        let uniqueSyllables = Array(Set(syllables)).sorted()
+
+        // Speak the note names
+        if !uniqueSyllables.isEmpty {
+            lastSpokenTime = currentTime
+            let text = uniqueSyllables.joined(separator: " ")
+
+            let utterance = AVSpeechUtterance(string: text)
+            utterance.rate = 0.55
+            utterance.volume = 1.0
+            utterance.pitchMultiplier = 1.0
+
+            // Stop any ongoing speech
+            if speechSynthesizer.isSpeaking {
+                speechSynthesizer.stopSpeaking(at: .immediate)
+            }
+
+            speechSynthesizer.speak(utterance)
         }
     }
 }
