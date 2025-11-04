@@ -47,12 +47,19 @@ struct ContentView: View {
                         .font(.largeTitle)
                         .fontWeight(.bold)
 
-                    Text("Load a MusicXML or .mxl file or try the demo")
+                    Text("Load a MusicXML or .mxl file or try a demo")
                         .foregroundColor(.secondary)
 
                     HStack(spacing: 15) {
-                        Button("Load Demo") {
-                            loadDemoFile()
+                        Menu {
+                            Button("Twinkle Twinkle Little Star") {
+                                loadDemoFile(named: "twinkle_twinkle")
+                            }
+                            Button("Für Elise (Easy Piano)") {
+                                loadDemoFile(named: "fur_elise")
+                            }
+                        } label: {
+                            Text("Load Demo")
                         }
                         .buttonStyle(.borderedProminent)
 
@@ -215,8 +222,34 @@ struct ContentView: View {
 
                     Divider()
 
-                    // Parts/Staves selector (only show if multiple parts available)
-                    if verovioService.availableParts.count > 1 {
+                    // Staves selector (show if multiple staves available)
+                    if verovioService.availableStaves.count > 1 {
+                        Menu {
+                            ForEach(verovioService.availableStaves, id: \.1) { partId, staffNumber, staffName in
+                                Button(action: {
+                                    toggleStaff(partId: partId, staffNumber: staffNumber)
+                                }) {
+                                    HStack {
+                                        let staveKey = "\(partId)-\(staffNumber)"
+                                        if verovioService.enabledStaves.contains(staveKey) {
+                                            Image(systemName: "checkmark")
+                                        }
+                                        Text(staffName)
+                                    }
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "music.note.list")
+                                Text("\(verovioService.enabledStaves.count)/\(verovioService.availableStaves.count)")
+                            }
+                        }
+                        .help("Select Staves")
+
+                        Divider()
+                    }
+                    // Parts selector (only show if multiple parts available)
+                    else if verovioService.availableParts.count > 1 {
                         Menu {
                             ForEach(verovioService.availableParts, id: \.0) { partId, partName in
                                 Button(action: {
@@ -236,7 +269,7 @@ struct ContentView: View {
                                 Text("\(verovioService.enabledPartIds.count)/\(verovioService.availableParts.count)")
                             }
                         }
-                        .help("Select Parts/Staves")
+                        .help("Select Parts")
 
                         Divider()
                     }
@@ -245,8 +278,15 @@ struct ContentView: View {
                         isImporting = true
                     }
 
-                    Button("Demo") {
-                        loadDemoFile()
+                    Menu {
+                        Button("Twinkle Twinkle Little Star") {
+                            loadDemoFile(named: "twinkle_twinkle")
+                        }
+                        Button("Für Elise (Easy Piano)") {
+                            loadDemoFile(named: "fur_elise")
+                        }
+                    } label: {
+                        Text("Demo")
                     }
                 }
             }
@@ -256,6 +296,21 @@ struct ContentView: View {
     private func setPlaybackRate(_ rate: Float) {
         midiPlayer.playbackRate = rate
         metronome.playbackRate = rate
+    }
+
+    private func toggleStaff(partId: String, staffNumber: Int) {
+        let staveKey = "\(partId)-\(staffNumber)"
+
+        if verovioService.enabledStaves.contains(staveKey) {
+            // Don't allow disabling all staves
+            if verovioService.enabledStaves.count > 1 {
+                verovioService.enabledStaves.remove(staveKey)
+                reloadScore()
+            }
+        } else {
+            verovioService.enabledStaves.insert(staveKey)
+            reloadScore()
+        }
     }
 
     private func togglePart(_ partId: String) {
@@ -293,9 +348,9 @@ struct ContentView: View {
         }
     }
 
-    private func loadDemoFile() {
-        guard let url = Bundle.main.url(forResource: "twinkle_twinkle", withExtension: "xml") else {
-            errorMessage = "Demo file not found"
+    private func loadDemoFile(named fileName: String = "twinkle_twinkle") {
+        guard let url = Bundle.main.url(forResource: fileName, withExtension: "xml") else {
+            errorMessage = "Demo file not found: \(fileName)"
             return
         }
 
