@@ -187,9 +187,6 @@ class VerovioService: ObservableObject {
     ///   - options: Rendering options
     /// - Returns: Array of SVG strings, one per page
     func renderAllPages(data: Data, options: RenderOptions = RenderOptions()) throws -> [String] {
-        // Set options
-        toolkit.setOptions(options.jsonString)
-
         // Convert data to string
         guard var musicXMLString = String(data: data, encoding: .utf8) else {
             throw VerovioError.invalidData
@@ -202,15 +199,13 @@ class VerovioService: ObservableObject {
             extractAvailableParts(from: musicXMLString)
         }
 
-        // Filter staves if needed
+        // Filter to single staff if needed
         if !enabledStaves.isEmpty && enabledStaves.count < availableStaves.count {
-            musicXMLString = filterStaves(in: musicXMLString, enabledStaves: enabledStaves)
+            musicXMLString = filterToSingleStaff(in: musicXMLString, enabledStaves: enabledStaves)
         }
 
-        // Filter parts if needed
-        if !enabledPartIds.isEmpty && enabledPartIds.count < availableParts.count {
-            musicXMLString = filterParts(in: musicXMLString, enabledIds: enabledPartIds)
-        }
+        // Set options
+        toolkit.setOptions(options.jsonString)
 
         // Store for tempo extraction
         lastLoadedMusicXML = musicXMLString
@@ -451,78 +446,90 @@ class VerovioService: ObservableObject {
         return 1
     }
 
-    /// Filter staves within parts - removes disabled staves from the MusicXML
-    private func filterStaves(in musicXML: String, enabledStaves: Set<String>) -> String {
-        var filtered = musicXML
-
-        // Group enabled staves by part
-        var enabledByPart: [String: Set<Int>] = [:]
+    /// Filter MusicXML to show only selected staves, converting to single-staff representation
+    private func filterToSingleStaff(in musicXML: String, enabledStaves: Set<String>) -> String {
+        // Determine which staff number to keep for each part
+        var keepStaffForPart: [String: Int] = [:]
         for staveKey in enabledStaves {
             let components = staveKey.split(separator: "-")
-            if components.count == 2,
-               let staffNum = Int(components[1]) {
+            if components.count == 2, let staffNum = Int(components[1]) {
                 let partId = String(components[0])
-                enabledByPart[partId, default: Set()].insert(staffNum)
+                keepStaffForPart[partId] = staffNum
             }
         }
 
-        // For each part with multiple staves, filter the disabled ones
-        for (partId, staffNumber, _) in availableStaves {
-            let staveKey = "\(partId)-\(staffNumber)"
-            if !enabledStaves.contains(staveKey) {
-                // This staff is disabled - remove all elements with this staff number
-                filtered = removeStaffElements(from: filtered, partId: partId, staffNumber: staffNumber)
-            }
-        }
-
-        // Update the <staves> count in attributes for each part
-        for (partId, enabledStaffNums) in enabledByPart {
-            let enabledCount = enabledStaffNums.count
-            if enabledCount > 0 {
-                // Find and update <staves>N</staves> in the attributes section
-                let stavesPattern = "(<part id=\"\(partId)\">.*?<attributes>.*?)<staves>\\d+</staves>"
-                if let regex = try? NSRegularExpression(pattern: stavesPattern, options: [.dotMatchesLineSeparators]) {
-                    let template = "$1<staves>\(enabledCount)</staves>"
-                    filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: template)
-                }
-            }
-        }
-
-        return filtered
-    }
-
-    /// Remove all elements belonging to a specific staff number within a part
-    private func removeStaffElements(from musicXML: String, partId: String, staffNumber: Int) -> String {
         var filtered = musicXML
 
-        // Remove <note> elements with <staff>N</staff>
-        let notePattern = "<note>.*?<staff>\(staffNumber)</staff>.*?</note>"
-        if let regex = try? NSRegularExpression(pattern: notePattern, options: [.dotMatchesLineSeparators]) {
-            filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
+        for (partId, keepStaff) in keepStaffForPart {
+            print("Filtering part \(partId) to keep only staff \(keepStaff)")
+
+            // Step 1: Remove notes from other staves FIRST (before removing backup)
+            // This is critical because notes come before/after backup elements
+            for staffNum in 1...10 {
+                if staffNum != keepStaff {
+                    // Remove notes with explicit <staff>N</staff> tag
+                    // Use a pattern that won't cross </note> boundaries
+                    let notePattern = "<note(?:(?!</note>).)*<staff>\(staffNum)</staff>(?:(?!</note>).)*</note>"
+                    if let regex = try? NSRegularExpression(pattern: notePattern, options: [.dotMatchesLineSeparators]) {
+                        let beforeCount = (filtered as NSString).length
+                        filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
+                        let afterCount = (filtered as NSString).length
+                        let removedChars = beforeCount - afterCount
+                        if removedChars > 0 {
+                            print("Removed notes for staff \(staffNum): ~\(removedChars) characters")
+                        }
+                    }
+                }
+            }
+
+            // Step 2: Now remove backup elements (they're for multi-staff timing)
+            let backupPattern = "<backup>.*?</backup>"
+            if let regex = try? NSRegularExpression(pattern: backupPattern, options: [.dotMatchesLineSeparators]) {
+                let beforeCount = filtered.count
+                filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
+                let removedCount = (beforeCount - filtered.count) / 30 // rough estimate
+                if removedCount > 0 {
+                    print("Removed approximately \(removedCount) backup elements")
+                }
+            }
+
+            // Step 3: Update <staves> count to 1
+            let stavesPattern = "(<part id=\"\(partId)\">.*?<attributes>.*?)<staves>\\d+</staves>"
+            if let regex = try? NSRegularExpression(pattern: stavesPattern, options: [.dotMatchesLineSeparators]) {
+                filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "$1<staves>1</staves>")
+                print("Updated staves count to 1")
+            }
+
+            // Step 4: Remove clefs for other staves
+            for staffNum in 1...10 {
+                if staffNum != keepStaff {
+                    let clefPattern = "<clef number=\"\(staffNum)\"[^>]*>.*?</clef>"
+                    if let regex = try? NSRegularExpression(pattern: clefPattern, options: [.dotMatchesLineSeparators]) {
+                        filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
+                    }
+                }
+            }
+
+            // Step 5: Remove <staff>N</staff> tags from remaining notes (convert to single-staff)
+            let staffTagPattern = "<staff>\(keepStaff)</staff>"
+            let beforeReplace = filtered.count
+            filtered = filtered.replacingOccurrences(of: staffTagPattern, with: "")
+            print("Removed \((beforeReplace - filtered.count) / 20) staff tags (approx)")
+
+            // Step 6: Remove clef number attribute from the remaining clef
+            let clefNumberPattern = "(<clef )number=\"\(keepStaff)\""
+            filtered = filtered.replacingOccurrences(of: clefNumberPattern, with: "$1", options: .regularExpression)
+
+            print("Filtering complete for part \(partId)")
         }
 
-        // Remove <forward> elements with <staff>N</staff>
-        let forwardPattern = "<forward>.*?<staff>\(staffNumber)</staff>.*?</forward>"
-        if let regex = try? NSRegularExpression(pattern: forwardPattern, options: [.dotMatchesLineSeparators]) {
-            filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
-        }
-
-        // Remove <backup> elements with <staff>N</staff>
-        let backupPattern = "<backup>.*?<staff>\(staffNumber)</staff>.*?</backup>"
-        if let regex = try? NSRegularExpression(pattern: backupPattern, options: [.dotMatchesLineSeparators]) {
-            filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
-        }
-
-        // Remove <clef> elements with number=N
-        let clefPattern = "<clef number=\"\(staffNumber)\">.*?</clef>"
-        if let regex = try? NSRegularExpression(pattern: clefPattern, options: [.dotMatchesLineSeparators]) {
-            filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
-        }
+        // Debug: Write filtered XML to temp file
+        let tempPath = FileManager.default.temporaryDirectory.appendingPathComponent("filtered_staff.xml")
+        try? filtered.write(to: tempPath, atomically: true, encoding: .utf8)
+        print("Filtered XML written to: \(tempPath.path)")
 
         return filtered
-    }
-
-    /// Filter MusicXML to only include enabled parts
+    }    /// Filter MusicXML to only include enabled parts
     private func filterParts(in musicXML: String, enabledIds: Set<String>) -> String {
         var filtered = musicXML
 
