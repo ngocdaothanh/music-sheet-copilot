@@ -34,7 +34,7 @@ struct ContentView: View {
                         .font(.largeTitle)
                         .fontWeight(.bold)
 
-                    Text("Load a MusicXML file or try the demo")
+                    Text("Load a MusicXML or .mxl file or try the demo")
                         .foregroundColor(.secondary)
 
                     HStack(spacing: 15) {
@@ -60,7 +60,11 @@ struct ContentView: View {
         }
         .fileImporter(
             isPresented: $isImporting,
-            allowedContentTypes: [.xml, UTType(filenameExtension: "musicxml") ?? .xml],
+            allowedContentTypes: [
+                .xml,
+                UTType(filenameExtension: "musicxml") ?? .xml,
+                UTType(filenameExtension: "mxl") ?? .xml
+            ],
             allowsMultipleSelection: false
         ) { result in
             handleFileImport(result)
@@ -122,7 +126,15 @@ struct ContentView: View {
         errorMessage = nil
 
         do {
-            let data = try Data(contentsOf: url)
+            var data = try Data(contentsOf: url)
+
+            // Check if this is a compressed .mxl file
+            let fileExtension = url.pathExtension.lowercased()
+            if fileExtension == "mxl" {
+                print("Decompressing .mxl file...")
+                data = try MXLDecompressor.decompress(data)
+                print("Successfully decompressed .mxl file")
+            }
 
             // Render all pages with Verovio
             let pages = try verovioService.renderAllPages(data: data)

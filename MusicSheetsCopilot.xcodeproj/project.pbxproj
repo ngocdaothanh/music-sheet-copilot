@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		73AD151C2EB9A8F400478D55 /* MultiPageSVGMusicSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73AD151B2EB9A8F400478D55 /* MultiPageSVGMusicSheetView.swift */; };
 		73AD151E2EB9B16A00478D55 /* MIDIPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73AD151D2EB9B16A00478D55 /* MIDIPlayer.swift */; };
+		73AD151F2EB9C00000478D55 /* MXLDecompressor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73AD15202EB9C00000478D55 /* MXLDecompressor.swift */; };
 		E1A001 /* MusicSheetsCopilotApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A002 /* MusicSheetsCopilotApp.swift */; };
 		E1A003 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A004 /* ContentView.swift */; };
 		E1A005 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E1A006 /* Assets.xcassets */; };
@@ -20,6 +21,7 @@
 /* Begin PBXFileReference section */
 		73AD151B2EB9A8F400478D55 /* MultiPageSVGMusicSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiPageSVGMusicSheetView.swift; sourceTree = "<group>"; };
 		73AD151D2EB9B16A00478D55 /* MIDIPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MIDIPlayer.swift; sourceTree = "<group>"; };
+		73AD15202EB9C00000478D55 /* MXLDecompressor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MXLDecompressor.swift; sourceTree = "<group>"; };
 		E1A002 /* MusicSheetsCopilotApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicSheetsCopilotApp.swift; sourceTree = "<group>"; };
 		E1A004 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		E1A006 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -83,6 +85,7 @@
 			isa = PBXGroup;
 			children = (
 				73AD151D2EB9B16A00478D55 /* MIDIPlayer.swift */,
+				73AD15202EB9C00000478D55 /* MXLDecompressor.swift */,
 				E1A038 /* VerovioService.swift */,
 			);
 			path = Models;
@@ -174,6 +177,7 @@
 			files = (
 				E1A003 /* ContentView.swift in Sources */,
 				73AD151E2EB9B16A00478D55 /* MIDIPlayer.swift in Sources */,
+				73AD151F2EB9C00000478D55 /* MXLDecompressor.swift in Sources */,
 				73AD151C2EB9A8F400478D55 /* MultiPageSVGMusicSheetView.swift in Sources */,
 				E1A001 /* MusicSheetsCopilotApp.swift in Sources */,
 				E1A037 /* VerovioService.swift in Sources */,
