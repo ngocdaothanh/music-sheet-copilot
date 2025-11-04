@@ -12,28 +12,14 @@ import WebKit
 struct MultiPageSVGMusicSheetView: View {
     let svgPages: [String]
 
-    @State private var scale: CGFloat = 1.0
-
     var body: some View {
-        ScrollView([.horizontal, .vertical]) {
+        ScrollView(.vertical) {
             CombinedSVGWebView(svgPages: svgPages)
-                .scaleEffect(scale)
+                .frame(maxWidth: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .toolbar {
             ToolbarItemGroup {
-                Button(action: { scale = max(0.5, scale - 0.1) }) {
-                    Image(systemName: "minus.magnifyingglass")
-                }
-
-                Button(action: { scale = min(3.0, scale + 0.1) }) {
-                    Image(systemName: "plus.magnifyingglass")
-                }
-
-                Button(action: { scale = 1.0 }) {
-                    Text("100%")
-                }
-
                 Text("\(svgPages.count) page\(svgPages.count == 1 ? "" : "s")")
                     .foregroundColor(.secondary)
             }
@@ -48,10 +34,10 @@ struct CombinedSVGWebView: View {
     var body: some View {
         #if os(macOS)
         CombinedSVGWebViewMac(svgPages: svgPages)
-            .frame(minWidth: 800, minHeight: 600)
+            .frame(maxWidth: .infinity, minHeight: 800)
         #else
         CombinedSVGWebViewiOS(svgPages: svgPages)
-            .frame(minWidth: 800, minHeight: 600)
+            .frame(maxWidth: .infinity, minHeight: 800)
         #endif
     }
 }
@@ -69,6 +55,10 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
 
     func updateNSView(_ webView: WKWebView, context: Context) {
         let html = createHTML(svgPages: svgPages)
+        print("CombinedSVGWebViewMac - Loading \(svgPages.count) page(s)")
+        print("CombinedSVGWebViewMac - Total HTML length: \(html.count)")
+        print("CombinedSVGWebViewMac - HTML preview (first 1000 chars):")
+        print(String(html.prefix(1000)))
         webView.loadHTMLString(html, baseURL: nil)
     }
 
