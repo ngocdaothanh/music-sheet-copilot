@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		7306849D2EBA1C7B001BCE5B /* fur_elise.xml in Resources */ = {isa = PBXBuildFile; fileRef = 7306849C2EBA1C7B001BCE5B /* fur_elise.xml */; };
 		73AD151C2EB9A8F400478D55 /* MultiPageSVGMusicSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73AD151B2EB9A8F400478D55 /* MultiPageSVGMusicSheetView.swift */; };
 		73AD151E2EB9B16A00478D55 /* MIDIPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73AD151D2EB9B16A00478D55 /* MIDIPlayer.swift */; };
 		73AD151F2EB9C00000478D55 /* MXLDecompressor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73AD15202EB9C00000478D55 /* MXLDecompressor.swift */; };
@@ -20,6 +21,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		7306849C2EBA1C7B001BCE5B /* fur_elise.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = fur_elise.xml; sourceTree = "<group>"; };
 		73AD151B2EB9A8F400478D55 /* MultiPageSVGMusicSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiPageSVGMusicSheetView.swift; sourceTree = "<group>"; };
 		73AD151D2EB9B16A00478D55 /* MIDIPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MIDIPlayer.swift; sourceTree = "<group>"; };
 		73AD151F2EB9BF3D00478D55 /* Metronome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Metronome.swift; sourceTree = "<group>"; };
@@ -97,6 +99,7 @@
 		E1A023 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				7306849C2EBA1C7B001BCE5B /* fur_elise.xml */,
 				E1A014 /* twinkle_twinkle.xml */,
 			);
 			path = Resources;
@@ -167,6 +170,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E1A005 /* Assets.xcassets in Resources */,
+				7306849D2EBA1C7B001BCE5B /* fur_elise.xml in Resources */,
 				E1A013 /* twinkle_twinkle.xml in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
