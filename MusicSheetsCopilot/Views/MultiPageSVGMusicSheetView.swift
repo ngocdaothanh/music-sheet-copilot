@@ -16,20 +16,8 @@ struct MultiPageSVGMusicSheetView: View {
 
     var body: some View {
         ScrollView([.horizontal, .vertical]) {
-            VStack(spacing: 20) {
-                ForEach(Array(svgPages.enumerated()), id: \.offset) { index, svgString in
-                    VStack(spacing: 5) {
-                        Text("Page \(index + 1)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-
-                        SVGWebView(svgString: svgString)
-                            .frame(minWidth: 600, minHeight: 400)
-                    }
-                }
-            }
-            .padding()
-            .scaleEffect(scale)
+            CombinedSVGWebView(svgPages: svgPages)
+                .scaleEffect(scale)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .toolbar {
@@ -53,36 +41,48 @@ struct MultiPageSVGMusicSheetView: View {
     }
 }
 
-/// UIViewRepresentable/NSViewRepresentable wrapper for WKWebView to display SVG
-struct SVGWebView: View {
-    let svgString: String
+/// Single WebView that displays all SVG pages
+struct CombinedSVGWebView: View {
+    let svgPages: [String]
 
     var body: some View {
         #if os(macOS)
-        SVGWebViewMac(svgString: svgString)
+        CombinedSVGWebViewMac(svgPages: svgPages)
+            .frame(minWidth: 800, minHeight: 600)
         #else
-        SVGWebViewiOS(svgString: svgString)
+        CombinedSVGWebViewiOS(svgPages: svgPages)
+            .frame(minWidth: 800, minHeight: 600)
         #endif
     }
 }
 
 #if os(macOS)
-struct SVGWebViewMac: NSViewRepresentable {
-    let svgString: String
+struct CombinedSVGWebViewMac: NSViewRepresentable {
+    let svgPages: [String]
 
     func makeNSView(context: Context) -> WKWebView {
-        let webView = WKWebView()
-        webView.setValue(false, forKey: "drawsBackground") // Transparent background
+        let config = WKWebViewConfiguration()
+        let webView = WKWebView(frame: .zero, configuration: config)
+        webView.setValue(false, forKey: "drawsBackground")
         return webView
     }
 
     func updateNSView(_ webView: WKWebView, context: Context) {
-        let html = createHTML(svg: svgString)
+        let html = createHTML(svgPages: svgPages)
         webView.loadHTMLString(html, baseURL: nil)
     }
 
-    private func createHTML(svg: String) -> String {
-        """
+    private func createHTML(svgPages: [String]) -> String {
+        let svgContent = svgPages.enumerated().map { index, svg in
+            """
+            <div class="page">
+                <div class="page-label">Page \(index + 1)</div>
+                \(svg)
+            </div>
+            """
+        }.joined(separator: "\n")
+
+        return """
         <!DOCTYPE html>
         <html>
         <head>
@@ -94,24 +94,39 @@ struct SVGWebViewMac: NSViewRepresentable {
                     padding: 20px;
                     background: transparent;
                     display: flex;
-                    justify-content: center;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 30px;
+                }
+                .page {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 10px;
+                }
+                .page-label {
+                    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+                    font-size: 12px;
+                    color: #666;
+                    margin-bottom: 5px;
                 }
                 svg {
                     max-width: 100%;
                     height: auto;
+                    display: block;
                 }
             </style>
         </head>
         <body>
-            \(svg)
+            \(svgContent)
         </body>
         </html>
         """
     }
 }
 #else
-struct SVGWebViewiOS: UIViewRepresentable {
-    let svgString: String
+struct CombinedSVGWebViewiOS: UIViewRepresentable {
+    let svgPages: [String]
 
     func makeUIView(context: Context) -> WKWebView {
         let webView = WKWebView()
@@ -122,12 +137,21 @@ struct SVGWebViewiOS: UIViewRepresentable {
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
-        let html = createHTML(svg: svgString)
+        let html = createHTML(svgPages: svgPages)
         webView.loadHTMLString(html, baseURL: nil)
     }
 
-    private func createHTML(svg: String) -> String {
-        """
+    private func createHTML(svgPages: [String]) -> String {
+        let svgContent = svgPages.enumerated().map { index, svg in
+            """
+            <div class="page">
+                <div class="page-label">Page \(index + 1)</div>
+                \(svg)
+            </div>
+            """
+        }.joined(separator: "\n")
+
+        return """
         <!DOCTYPE html>
         <html>
         <head>
@@ -139,16 +163,31 @@ struct SVGWebViewiOS: UIViewRepresentable {
                     padding: 20px;
                     background: transparent;
                     display: flex;
-                    justify-content: center;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 30px;
+                }
+                .page {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 10px;
+                }
+                .page-label {
+                    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+                    font-size: 12px;
+                    color: #666;
+                    margin-bottom: 5px;
                 }
                 svg {
                     max-width: 100%;
                     height: auto;
+                    display: block;
                 }
             </style>
         </head>
         <body>
-            \(svg)
+            \(svgContent)
         </body>
         </html>
         """
