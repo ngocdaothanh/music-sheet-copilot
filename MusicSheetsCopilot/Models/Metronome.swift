@@ -146,11 +146,11 @@ class Metronome: ObservableObject {
         case .solfege:
             speakNotesAtCurrentTime()
         case .counting:
-            speakCount()
             tickCount += 1
             if tickCount >= timeSignature.0 {
                 tickCount = 0
             }
+            speakCount()
         }
     }
 
