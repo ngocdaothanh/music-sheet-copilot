@@ -170,9 +170,14 @@ class VerovioService: ObservableObject {
             extractAvailableParts(from: musicXMLString)
         }
 
-        // Filter to single staff if needed
+        // Filter to single staff if needed (for multi-staff single parts like piano)
         if !enabledStaves.isEmpty && enabledStaves.count < availableStaves.count {
             musicXMLString = filterToSingleStaff(in: musicXMLString, enabledStaves: enabledStaves)
+        }
+
+        // Filter parts if needed (for multi-part scores)
+        if !enabledPartIds.isEmpty && enabledPartIds.count < availableParts.count {
+            musicXMLString = filterParts(in: musicXMLString, enabledIds: enabledPartIds)
         }
 
         // Set options
