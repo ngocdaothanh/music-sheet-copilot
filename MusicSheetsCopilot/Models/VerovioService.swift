@@ -170,15 +170,13 @@ class VerovioService: ObservableObject {
             extractAvailableParts(from: musicXMLString)
         }
 
-        // Hide disabled staves using print-object="no" (for multi-staff single parts like piano)
+        // Hide disabled staves (for multi-staff single parts like piano)
         if !enabledStaves.isEmpty && enabledStaves.count < availableStaves.count {
-            print("DEBUG: Hiding disabled staves. Enabled: \(enabledStaves), Available: \(availableStaves.map { "\($0.partId)-\($0.staffNumber)" })")
             musicXMLString = hideDisabledStaves(in: musicXMLString, enabledStaves: enabledStaves)
         }
 
-        // Hide disabled parts using print-object="no" (for multi-part scores)
+        // Hide disabled parts (for multi-part scores)
         if !enabledPartIds.isEmpty && enabledPartIds.count < availableParts.count {
-            print("DEBUG: Hiding disabled parts. Enabled: \(enabledPartIds), Available: \(availableParts.map { $0.id })")
             musicXMLString = hideDisabledParts(in: musicXMLString, enabledIds: enabledPartIds)
         }
 
@@ -453,21 +451,15 @@ class VerovioService: ObservableObject {
         for (partId, staffNumber, _) in availableStaves {
             let staveKey = "\(partId)-\(staffNumber)"
             if !enabledStaves.contains(staveKey) {
-                print("DEBUG: Removing content from staff \(staffNumber) for part \(partId)")
-                
                 // Remove notes on this staff
                 let notePattern = "<note(?:(?!</note>).)*<staff>\(staffNumber)</staff>(?:(?!</note>).)*</note>"
                 if let regex = try? NSRegularExpression(pattern: notePattern, options: [.dotMatchesLineSeparators]) {
-                    let count = regex.numberOfMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count))
-                    print("DEBUG: Removing \(count) notes from staff \(staffNumber)")
                     filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
                 }
-                
+
                 // Remove directions (dynamics, pedals, etc.) on this staff
                 let directionPattern = "<direction(?:(?!</direction>).)*<staff>\(staffNumber)</staff>(?:(?!</direction>).)*</direction>"
                 if let regex = try? NSRegularExpression(pattern: directionPattern, options: [.dotMatchesLineSeparators]) {
-                    let count = regex.numberOfMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count))
-                    print("DEBUG: Removing \(count) directions from staff \(staffNumber)")
                     filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
                 }
             }
@@ -482,32 +474,26 @@ class VerovioService: ObservableObject {
         // Remove notes from disabled parts
         for (partId, _) in availableParts {
             if !enabledIds.contains(partId) {
-                print("DEBUG: Removing content from part \(partId)")
-                
                 // Find and remove all notes in this part
                 let partPattern = "(<part id=\"\(partId)\">)(.*?)(</part>)"
                 if let partRegex = try? NSRegularExpression(pattern: partPattern, options: [.dotMatchesLineSeparators]),
                    let match = partRegex.firstMatch(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count)),
                    match.numberOfRanges >= 4 {
-                    
+
                     var partContent = (filtered as NSString).substring(with: match.range(at: 2))
-                    
+
                     // Remove all notes
                     let notePattern = "<note(?:(?!</note>).)*</note>"
                     if let noteRegex = try? NSRegularExpression(pattern: notePattern, options: [.dotMatchesLineSeparators]) {
-                        let count = noteRegex.numberOfMatches(in: partContent, options: [], range: NSRange(location: 0, length: partContent.utf16.count))
-                        print("DEBUG: Removing \(count) notes from part \(partId)")
                         partContent = noteRegex.stringByReplacingMatches(in: partContent, options: [], range: NSRange(location: 0, length: partContent.utf16.count), withTemplate: "")
                     }
-                    
+
                     // Remove all directions
                     let directionPattern = "<direction(?:(?!</direction>).)*</direction>"
                     if let directionRegex = try? NSRegularExpression(pattern: directionPattern, options: [.dotMatchesLineSeparators]) {
-                        let count = directionRegex.numberOfMatches(in: partContent, options: [], range: NSRange(location: 0, length: partContent.utf16.count))
-                        print("DEBUG: Removing \(count) directions from part \(partId)")
                         partContent = directionRegex.stringByReplacingMatches(in: partContent, options: [], range: NSRange(location: 0, length: partContent.utf16.count), withTemplate: "")
                     }
-                    
+
                     filtered = (filtered as NSString).replacingCharacters(in: match.range(at: 2), with: partContent)
                 }
             }
