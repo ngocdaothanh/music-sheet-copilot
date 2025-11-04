@@ -102,11 +102,16 @@ class Metronome: ObservableObject {
         lastSpokenTime = -1
         lastSpokenNotes = []
 
-        // Play an immediate tick/count when starting in beat or counting mode
+        // Play an immediate tick/count when starting
         if mode == .tick {
             playTickSound()
         } else if mode == .counting {
             speakCount()
+            // Increment tickCount so the timer continues from the next beat
+            tickCount += 1
+            if tickCount >= timeSignature.0 {
+                tickCount = 0
+            }
         }
 
         updateTimer()
@@ -149,11 +154,11 @@ class Metronome: ObservableObject {
         case .solfege:
             speakNotesAtCurrentTime()
         case .counting:
+            speakCount()
             tickCount += 1
             if tickCount >= timeSignature.0 {
                 tickCount = 0
             }
-            speakCount()
         }
     }
 
@@ -221,7 +226,7 @@ class Metronome: ObservableObject {
 
     private func speakCount() {
         // Speak the beat number (1, 2, 3, 4...)
-        let beatNumber = (tickCount % timeSignature.0) + 1
+        let beatNumber = tickCount + 1
         let numberWords = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight",
                           "Nine", "Ten", "Eleven", "Twelve"]
 

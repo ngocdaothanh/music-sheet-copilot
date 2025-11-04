@@ -94,6 +94,12 @@ struct ContentView: View {
         .onAppear {
             // Set the MIDIPlayer reference for the metronome
             metronome.midiPlayer = midiPlayer
+
+            // Sync time signature from MIDIPlayer to Metronome
+            metronomeCancellable = midiPlayer.$timeSignature
+                .sink { newTimeSignature in
+                    metronome.timeSignature = newTimeSignature
+                }
         }
         .navigationTitle(documentTitle)
         #if os(iOS)

@@ -19,6 +19,7 @@ class MIDIPlayer: ObservableObject {
             midiPlayer?.rate = playbackRate
         }
     }
+    @Published var timeSignature: (Int, Int) = (4, 4)
 
     private var midiPlayer: AVMIDIPlayer?
     private var updateTimer: Timer?
@@ -181,6 +182,7 @@ class MIDIPlayer: ObservableObject {
         }
 
         var microsecondsPerQuarterNote: Double = 500000 // Default 120 BPM
+        var foundTimeSignature = false
 
         while offset < data.count - 8 {
             // Check for track chunk
@@ -244,6 +246,17 @@ class MIDIPlayer: ObservableObject {
                         microsecondsPerQuarterNote = Double(data[offset]) * 65536 +
                                                     Double(data[offset+1]) * 256 +
                                                     Double(data[offset+2])
+                    }
+                    // Time signature meta event (0x58)
+                    else if metaType == 0x58 && length == 4 && offset + 4 <= data.count && !foundTimeSignature {
+                        let numerator = Int(data[offset])
+                        let denominatorPower = Int(data[offset+1])
+                        let denominator = Int(pow(2.0, Double(denominatorPower)))
+                        DispatchQueue.main.async {
+                            self.timeSignature = (numerator, denominator)
+                        }
+                        foundTimeSignature = true
+                        print("Found time signature: \(numerator)/\(denominator)")
                     }
 
                     offset += Int(length)
