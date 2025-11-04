@@ -96,4 +96,3 @@ Planned features:
 - Demo pieces:
   - "Twinkle Twinkle Little Star" (Traditional)
   - "Für Elise" by Ludwig van Beethoven (Simplified arrangement)
-- MusicXML format by MakeMusic/Steinberg
