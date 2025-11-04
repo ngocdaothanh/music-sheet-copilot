@@ -10,24 +10,18 @@
 		E1A001 /* MusicSheetsCopilotApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A002 /* MusicSheetsCopilotApp.swift */; };
 		E1A003 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A004 /* ContentView.swift */; };
 		E1A005 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E1A006 /* Assets.xcassets */; };
-		E1A007 /* MusicXMLParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A008 /* MusicXMLParser.swift */; };
-		E1A009 /* MusicScore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A010 /* MusicScore.swift */; };
-		E1A011 /* MusicSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A012 /* MusicSheetView.swift */; };
 		E1A013 /* twinkle_twinkle.xml in Resources */ = {isa = PBXBuildFile; fileRef = E1A014 /* twinkle_twinkle.xml */; };
-		E1A034 /* Verovio in Frameworks */ = {isa = PBXBuildFile; productRef = E1A035 /* VerovioToolkit */; };
+		E1A034 /* VerovioToolkit in Frameworks */ = {isa = PBXBuildFile; productRef = E1A035 /* VerovioToolkit */; };
 		E1A037 /* VerovioService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A038 /* VerovioService.swift */; };
 		E1A039 /* SVGMusicSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A040 /* SVGMusicSheetView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		E1A015 /* MusicSheetsCopilot.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MusicSheetsCopilot.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E1A002 /* MusicSheetsCopilotApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicSheetsCopilotApp.swift; sourceTree = "<group>"; };
 		E1A004 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		E1A006 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		E1A008 /* MusicXMLParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicXMLParser.swift; sourceTree = "<group>"; };
-		E1A010 /* MusicScore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicScore.swift; sourceTree = "<group>"; };
-		E1A012 /* MusicSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicSheetView.swift; sourceTree = "<group>"; };
 		E1A014 /* twinkle_twinkle.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = twinkle_twinkle.xml; sourceTree = "<group>"; };
+		E1A015 /* MusicSheetsCopilot.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MusicSheetsCopilot.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E1A016 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		E1A038 /* VerovioService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerovioService.swift; sourceTree = "<group>"; };
 		E1A040 /* SVGMusicSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SVGMusicSheetView.swift; sourceTree = "<group>"; };
@@ -38,7 +32,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E1A034 /* Verovio in Frameworks */,
+				E1A034 /* VerovioToolkit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -51,14 +45,6 @@
 				E1A019 /* MusicSheetsCopilot */,
 				E1A020 /* Products */,
 			);
-			sourceTree = "<group>";
-		};
-		E1A020 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				E1A015 /* MusicSheetsCopilot.app */,
-			);
-			name = Products;
 			sourceTree = "<group>";
 		};
 		E1A019 /* MusicSheetsCopilot */ = {
@@ -75,31 +61,36 @@
 			path = MusicSheetsCopilot;
 			sourceTree = "<group>";
 		};
+		E1A020 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				E1A015 /* MusicSheetsCopilot.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		E1A021 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				E1A040 /* SVGMusicSheetView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		E1A022 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				E1A038 /* VerovioService.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
 		E1A023 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
 				E1A014 /* twinkle_twinkle.xml */,
 			);
 			path = Resources;
-			sourceTree = "<group>";
-		};
-		E1A022 /* Models */ = {
-			isa = PBXGroup;
-			children = (
-				E1A008 /* MusicXMLParser.swift */,
-				E1A010 /* MusicScore.swift */,
-				E1A038 /* VerovioService.swift */,
-			);
-			path = Models;
-			sourceTree = "<group>";
-		};
-		E1A021 /* Views */ = {
-			isa = PBXGroup;
-			children = (
-				E1A012 /* MusicSheetView.swift */,
-				E1A040 /* SVGMusicSheetView.swift */,
-			);
-			path = Views;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -179,9 +170,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				E1A003 /* ContentView.swift in Sources */,
-				E1A007 /* MusicXMLParser.swift in Sources */,
-				E1A009 /* MusicScore.swift in Sources */,
-				E1A011 /* MusicSheetView.swift in Sources */,
 				E1A001 /* MusicSheetsCopilotApp.swift in Sources */,
 				E1A037 /* VerovioService.swift in Sources */,
 				E1A039 /* SVGMusicSheetView.swift in Sources */,
@@ -390,20 +378,20 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		E1A029 /* Build configuration list for PBXProject "MusicSheetsCopilot" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				E1A030 /* Debug */,
-				E1A031 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		E1A025 /* Build configuration list for PBXNativeTarget "MusicSheetsCopilot" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				E1A032 /* Debug */,
 				E1A033 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E1A029 /* Build configuration list for PBXProject "MusicSheetsCopilot" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E1A030 /* Debug */,
+				E1A031 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
