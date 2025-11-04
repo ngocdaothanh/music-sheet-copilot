@@ -8,9 +8,22 @@
     <creator type="composer">Traditional</creator>
   </identification>
   <part-list>
+    <part-group type="start" number="1">
+      <group-symbol>brace</group-symbol>
+    </part-group>
     <score-part id="P1">
       <part-name>Piano</part-name>
+      <part-name-display>
+        <display-text>Right Hand</display-text>
+      </part-name-display>
     </score-part>
+    <score-part id="P2">
+      <part-name>Piano</part-name>
+      <part-name-display>
+        <display-text>Left Hand</display-text>
+      </part-name-display>
+    </score-part>
+    <part-group type="stop" number="1"/>
   </part-list>
   <part id="P1">
     <!-- Measure 1: Twinkle twinkle -->
@@ -178,6 +191,71 @@
         <duration>8</duration>
         <type>half</type>
         <stem>up</stem>
+      </note>
+    </measure>
+  </part>
+  <part id="P2">
+    <!-- Measure 1: Bass - C and G chord -->
+    <measure number="1">
+      <attributes>
+        <divisions>4</divisions>
+        <key>
+          <fifths>0</fifths>
+          <mode>major</mode>
+        </key>
+        <time>
+          <beats>4</beats>
+          <beat-type>4</beat-type>
+        </time>
+        <clef>
+          <sign>F</sign>
+          <line>4</line>
+        </clef>
+      </attributes>
+      <!-- C whole note (root) -->
+      <note>
+        <pitch>
+          <step>C</step>
+          <octave>3</octave>
+        </pitch>
+        <duration>16</duration>
+        <type>whole</type>
+      </note>
+    </measure>
+    <!-- Measure 2: Bass - F and C chord -->
+    <measure number="2">
+      <!-- F whole note -->
+      <note>
+        <pitch>
+          <step>F</step>
+          <octave>2</octave>
+        </pitch>
+        <duration>16</duration>
+        <type>whole</type>
+      </note>
+    </measure>
+    <!-- Measure 3: Bass - G and D chord -->
+    <measure number="3">
+      <!-- G whole note -->
+      <note>
+        <pitch>
+          <step>G</step>
+          <octave>2</octave>
+        </pitch>
+        <duration>16</duration>
+        <type>whole</type>
+      </note>
+    </measure>
+    <!-- Measure 4: Bass - C chord -->
+    <measure number="4">
+      <!-- C whole note -->
+      <note>
+        <pitch>
+          <step>C</step>
+          <octave>3</octave>
+        </pitch>
+        <duration>16</duration>
+        <type>whole</type>
       </note>
     </measure>
   </part>
