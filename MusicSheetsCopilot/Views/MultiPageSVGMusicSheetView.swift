@@ -64,9 +64,10 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
 
     private func createHTML(svgPages: [String]) -> String {
         let svgContent = svgPages.enumerated().map { index, svg in
-            """
+            let pageLabel = svgPages.count > 1 ? "<div class=\"page-label\">Page \(index + 1)</div>" : ""
+            return """
             <div class="page">
-                <div class="page-label">Page \(index + 1)</div>
+                \(pageLabel)
                 \(svg)
             </div>
             """
@@ -133,9 +134,10 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
 
     private func createHTML(svgPages: [String]) -> String {
         let svgContent = svgPages.enumerated().map { index, svg in
-            """
+            let pageLabel = svgPages.count > 1 ? "<div class=\"page-label\">Page \(index + 1)</div>" : ""
+            return """
             <div class="page">
-                <div class="page-label">Page \(index + 1)</div>
+                \(pageLabel)
                 \(svg)
             </div>
             """
