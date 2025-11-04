@@ -170,14 +170,16 @@ class VerovioService: ObservableObject {
             extractAvailableParts(from: musicXMLString)
         }
 
-        // Filter to single staff if needed (for multi-staff single parts like piano)
+        // Hide disabled staves using print-object="no" (for multi-staff single parts like piano)
         if !enabledStaves.isEmpty && enabledStaves.count < availableStaves.count {
-            musicXMLString = filterToSingleStaff(in: musicXMLString, enabledStaves: enabledStaves)
+            print("DEBUG: Hiding disabled staves. Enabled: \(enabledStaves), Available: \(availableStaves.map { "\($0.partId)-\($0.staffNumber)" })")
+            musicXMLString = hideDisabledStaves(in: musicXMLString, enabledStaves: enabledStaves)
         }
 
-        // Filter parts if needed (for multi-part scores)
+        // Hide disabled parts using print-object="no" (for multi-part scores)
         if !enabledPartIds.isEmpty && enabledPartIds.count < availableParts.count {
-            musicXMLString = filterParts(in: musicXMLString, enabledIds: enabledPartIds)
+            print("DEBUG: Hiding disabled parts. Enabled: \(enabledPartIds), Available: \(availableParts.map { $0.id })")
+            musicXMLString = hideDisabledParts(in: musicXMLString, enabledIds: enabledPartIds)
         }
 
         // Set options
@@ -442,85 +444,71 @@ class VerovioService: ObservableObject {
         return 1
     }
 
-    /// Filter MusicXML to show only selected staves, converting to single-staff representation
-    private func filterToSingleStaff(in musicXML: String, enabledStaves: Set<String>) -> String {
-        // Determine which staff number to keep for each part
-        var keepStaffForPart: [String: Int] = [:]
-        for staveKey in enabledStaves {
-            let components = staveKey.split(separator: "-")
-            if components.count == 2, let staffNum = Int(components[1]) {
-                let partId = String(components[0])
-                keepStaffForPart[partId] = staffNum
-            }
-        }
-
+    /// Hide disabled staves by removing their content from MusicXML
+    /// Verovio doesn't respect print-object="no" for rendering, so we must remove elements
+    private func hideDisabledStaves(in musicXML: String, enabledStaves: Set<String>) -> String {
         var filtered = musicXML
 
-        for (partId, keepStaff) in keepStaffForPart {
-            // Step 1: Remove notes from other staves FIRST (before removing backup)
-            // This is critical because notes come before/after backup elements
-            for staffNum in 1...10 {
-                if staffNum != keepStaff {
-                    // Remove notes with explicit <staff>N</staff> tag
-                    // Use a pattern that won't cross </note> boundaries
-                    let notePattern = "<note(?:(?!</note>).)*<staff>\(staffNum)</staff>(?:(?!</note>).)*</note>"
-                    if let regex = try? NSRegularExpression(pattern: notePattern, options: [.dotMatchesLineSeparators]) {
-                        filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
-                    }
+        // Determine which staves to hide for each part
+        for (partId, staffNumber, _) in availableStaves {
+            let staveKey = "\(partId)-\(staffNumber)"
+            if !enabledStaves.contains(staveKey) {
+                print("DEBUG: Removing content from staff \(staffNumber) for part \(partId)")
+                
+                // Remove notes on this staff
+                let notePattern = "<note(?:(?!</note>).)*<staff>\(staffNumber)</staff>(?:(?!</note>).)*</note>"
+                if let regex = try? NSRegularExpression(pattern: notePattern, options: [.dotMatchesLineSeparators]) {
+                    let count = regex.numberOfMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count))
+                    print("DEBUG: Removing \(count) notes from staff \(staffNumber)")
+                    filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
+                }
+                
+                // Remove directions (dynamics, pedals, etc.) on this staff
+                let directionPattern = "<direction(?:(?!</direction>).)*<staff>\(staffNumber)</staff>(?:(?!</direction>).)*</direction>"
+                if let regex = try? NSRegularExpression(pattern: directionPattern, options: [.dotMatchesLineSeparators]) {
+                    let count = regex.numberOfMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count))
+                    print("DEBUG: Removing \(count) directions from staff \(staffNumber)")
+                    filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
                 }
             }
-
-            // Step 2: Now remove backup elements (they're for multi-staff timing)
-            let backupPattern = "<backup>.*?</backup>"
-            if let regex = try? NSRegularExpression(pattern: backupPattern, options: [.dotMatchesLineSeparators]) {
-                filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
-            }
-
-            // Step 3: Update <staves> count to 1
-            let stavesPattern = "(<part id=\"\(partId)\">.*?<attributes>.*?)<staves>\\d+</staves>"
-            if let regex = try? NSRegularExpression(pattern: stavesPattern, options: [.dotMatchesLineSeparators]) {
-                filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "$1<staves>1</staves>")
-            }
-
-            // Step 4: Remove clefs for other staves
-            for staffNum in 1...10 {
-                if staffNum != keepStaff {
-                    let clefPattern = "<clef number=\"\(staffNum)\"[^>]*>.*?</clef>"
-                    if let regex = try? NSRegularExpression(pattern: clefPattern, options: [.dotMatchesLineSeparators]) {
-                        filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
-                    }
-                }
-            }
-
-            // Step 5: Remove <staff>N</staff> tags from remaining notes (convert to single-staff)
-            let staffTagPattern = "<staff>\(keepStaff)</staff>"
-            filtered = filtered.replacingOccurrences(of: staffTagPattern, with: "")
-
-            // Step 6: Remove clef number attribute from the remaining clef
-            let clefNumberPattern = "(<clef )number=\"\(keepStaff)\""
-            filtered = filtered.replacingOccurrences(of: clefNumberPattern, with: "$1", options: .regularExpression)
         }
 
         return filtered
-    }
-
-    /// Filter MusicXML to only include enabled parts
-    private func filterParts(in musicXML: String, enabledIds: Set<String>) -> String {
+    }    /// Hide disabled parts by removing their content from MusicXML
+    /// Verovio doesn't respect print-object="no" for rendering, so we must remove elements
+    private func hideDisabledParts(in musicXML: String, enabledIds: Set<String>) -> String {
         var filtered = musicXML
 
-        // Remove disabled parts from <part-list>
+        // Remove notes from disabled parts
         for (partId, _) in availableParts {
             if !enabledIds.contains(partId) {
-                // Remove the score-part element
-                let scorePartPattern = "<score-part id=\"\(partId)\">.*?</score-part>"
-                if let regex = try? NSRegularExpression(pattern: scorePartPattern, options: [.dotMatchesLineSeparators]) {
-                    filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
-                }
-
-                // Remove the part element
-                let partPattern = "<part id=\"\(partId)\">.*?</part>"
-                if let regex = try? NSRegularExpression(pattern: partPattern, options: [.dotMatchesLineSeparators]) {
-                    filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
+                print("DEBUG: Removing content from part \(partId)")
+                
+                // Find and remove all notes in this part
+                let partPattern = "(<part id=\"\(partId)\">)(.*?)(</part>)"
+                if let partRegex = try? NSRegularExpression(pattern: partPattern, options: [.dotMatchesLineSeparators]),
+                   let match = partRegex.firstMatch(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count)),
+                   match.numberOfRanges >= 4 {
+                    
+                    var partContent = (filtered as NSString).substring(with: match.range(at: 2))
+                    
+                    // Remove all notes
+                    let notePattern = "<note(?:(?!</note>).)*</note>"
+                    if let noteRegex = try? NSRegularExpression(pattern: notePattern, options: [.dotMatchesLineSeparators]) {
+                        let count = noteRegex.numberOfMatches(in: partContent, options: [], range: NSRange(location: 0, length: partContent.utf16.count))
+                        print("DEBUG: Removing \(count) notes from part \(partId)")
+                        partContent = noteRegex.stringByReplacingMatches(in: partContent, options: [], range: NSRange(location: 0, length: partContent.utf16.count), withTemplate: "")
+                    }
+                    
+                    // Remove all directions
+                    let directionPattern = "<direction(?:(?!</direction>).)*</direction>"
+                    if let directionRegex = try? NSRegularExpression(pattern: directionPattern, options: [.dotMatchesLineSeparators]) {
+                        let count = directionRegex.numberOfMatches(in: partContent, options: [], range: NSRange(location: 0, length: partContent.utf16.count))
+                        print("DEBUG: Removing \(count) directions from part \(partId)")
+                        partContent = directionRegex.stringByReplacingMatches(in: partContent, options: [], range: NSRange(location: 0, length: partContent.utf16.count), withTemplate: "")
+                    }
+                    
+                    filtered = (filtered as NSString).replacingCharacters(in: match.range(at: 2), with: partContent)
                 }
             }
         }
