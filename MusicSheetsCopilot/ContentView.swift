@@ -503,6 +503,9 @@ struct ContentView: View {
     private func loadMusicXML(from url: URL) {
         errorMessage = nil
 
+        // Reset staves selection for new file
+        verovioService.enabledStaves.removeAll()
+
         do {
             var data = try Data(contentsOf: url)
 
