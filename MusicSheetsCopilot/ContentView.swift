@@ -17,6 +17,7 @@ struct ContentView: View {
 
     @StateObject private var metronome = Metronome()
     @State private var metronomeCancellable: AnyCancellable?
+    @State private var showTempoPopover = false
 
     init() {
         // Can't set metronome.midiPlayer in init with @StateObject
@@ -189,33 +190,29 @@ struct ContentView: View {
 
                     Divider()
 
-                    // Tempo adjustment
-                    Menu {
-                        Button("0.5x (Half Speed)") {
-                            setPlaybackRate(0.5)
-                        }
-                        Button("0.75x") {
-                            setPlaybackRate(0.75)
-                        }
-                        Button("1.0x (Normal)") {
-                            setPlaybackRate(1.0)
-                        }
-                        Button("1.25x") {
-                            setPlaybackRate(1.25)
-                        }
-                        Button("1.5x") {
-                            setPlaybackRate(1.5)
-                        }
-                        Button("2.0x (Double Speed)") {
-                            setPlaybackRate(2.0)
-                        }
-                    } label: {
+                    // Tempo adjustment with BPM display
+                    Button(action: {
+                        showTempoPopover.toggle()
+                    }) {
                         HStack(spacing: 4) {
-                            Image(systemName: "gauge.with.dots.needle.50percent")
-                            Text(String(format: "%.2fx", midiPlayer.playbackRate))
+                            Image(systemName: "metronome.fill")
+                            let baseBPM = verovioService.getTempoBPM() ?? 120.0
+                            let currentBPM = baseBPM * Double(midiPlayer.playbackRate)
+                            Text("\(Int(currentBPM)) BPM")
                         }
                     }
-                    .help("Adjust Playback Speed")
+                    .help("Adjust Tempo")
+                    .popover(isPresented: $showTempoPopover) {
+                        TempoSliderView(
+                            baseBPM: verovioService.getTempoBPM() ?? 120.0,
+                            playbackRate: $midiPlayer.playbackRate,
+                            onRateChange: { rate in
+                                setPlaybackRate(rate)
+                            }
+                        )
+                        .frame(width: 300, height: 120)
+                        .padding()
+                    }
 
                     Divider()
 
@@ -401,6 +398,92 @@ struct ContentView: View {
         } catch {
             errorMessage = "Failed to render MusicXML: \(error.localizedDescription)"
             svgPages = nil
+        }
+    }
+}
+
+// MARK: - Tempo Slider View
+struct TempoSliderView: View {
+    let baseBPM: Double
+    @Binding var playbackRate: Float
+    let onRateChange: (Float) -> Void
+
+    @State private var localRate: Double
+
+    init(baseBPM: Double, playbackRate: Binding<Float>, onRateChange: @escaping (Float) -> Void) {
+        self.baseBPM = baseBPM
+        self._playbackRate = playbackRate
+        self.onRateChange = onRateChange
+        self._localRate = State(initialValue: Double(playbackRate.wrappedValue))
+    }
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("Tempo Adjustment")
+                .font(.headline)
+
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Current Tempo")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("\(Int(baseBPM * localRate)) BPM")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("Original")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("\(Int(baseBPM)) BPM")
+                        .font(.subheadline)
+                }
+            }
+
+            HStack(spacing: 12) {
+                Text("50%")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .frame(width: 35)
+
+                Slider(value: $localRate, in: 0.5...2.0, step: 0.05) { editing in
+                    if !editing {
+                        let newRate = Float(localRate)
+                        playbackRate = newRate
+                        onRateChange(newRate)
+                    }
+                }
+                .onChange(of: localRate) { newValue in
+                    // Update in real-time while dragging
+                    let newRate = Float(newValue)
+                    playbackRate = newRate
+                    onRateChange(newRate)
+                }
+
+                Text("200%")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .frame(width: 35)
+            }
+
+            HStack(spacing: 8) {
+                Button("Reset") {
+                    localRate = 1.0
+                    playbackRate = 1.0
+                    onRateChange(1.0)
+                }
+                .buttonStyle(.bordered)
+
+                Spacer()
+
+                Text("\(Int(localRate * 100))%")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .frame(width: 50, alignment: .trailing)
+            }
         }
     }
 }
