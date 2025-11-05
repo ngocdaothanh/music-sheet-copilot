@@ -255,16 +255,9 @@ class VerovioService: ObservableObject {
     /// This is useful for solfege mode to speak only melody notes
     /// Must be called after renderAllPages() which populates availableStaves
     func getMIDIForFirstStaff() -> String? {
-        print("DEBUG VerovioService: getMIDIForFirstStaff called")
-
         guard let musicXMLString = lastLoadedMusicXML else {
-            print("DEBUG VerovioService: No loaded MusicXML")
             return nil
         }
-
-        print("DEBUG VerovioService: availableStaves count: \(availableStaves.count)")
-        print("DEBUG VerovioService: availableStaves: \(availableStaves)")
-        print("DEBUG VerovioService: enabledStaves: \(enabledStaves)")
 
         // Find the first enabled staff
         let sortedStaves = availableStaves.sorted {
@@ -279,12 +272,10 @@ class VerovioService: ObservableObject {
             let staveKey = "\(staff.partId)-\(staff.staffNumber)"
             return enabledStaves.isEmpty || enabledStaves.contains(staveKey)
         }) else {
-            print("DEBUG VerovioService: No first staff found")
             return nil
         }
 
         let firstStaffKey = "\(firstStaff.partId)-\(firstStaff.staffNumber)"
-        print("DEBUG VerovioService: Generating MIDI for first staff: \(firstStaffKey)")
 
         // Create a set with only the first staff enabled
         let onlyFirstStaff = Set([firstStaffKey])
@@ -417,7 +408,6 @@ class VerovioService: ObservableObject {
 
     /// Extract available parts and staves from MusicXML
     private func extractAvailableParts(from musicXML: String) {
-        print("DEBUG VerovioService.extractAvailableParts: Called with XML length: \(musicXML.count)")
         var parts: [(String, String)] = []
         var staves: [(String, Int, String)] = []
 
@@ -427,7 +417,6 @@ class VerovioService: ObservableObject {
         if let scorePartRegex = try? NSRegularExpression(pattern: scorePartPattern, options: [.dotMatchesLineSeparators]) {
             let nsString = musicXML as NSString
             let matches = scorePartRegex.matches(in: musicXML, options: [], range: NSRange(location: 0, length: nsString.length))
-            print("DEBUG VerovioService.extractAvailableParts: Found \(matches.count) score-part matches")
 
             for match in matches {
                 if match.numberOfRanges >= 2 {
@@ -461,31 +450,25 @@ class VerovioService: ObservableObject {
 
                         if !name.isEmpty {
                             parts.append((id, name))
-                            print("DEBUG VerovioService.extractAvailableParts: Found part: \(id) - \(name)")
 
                             // Now find how many staves this part has
                             let staffCount = extractStaffCount(from: musicXML, partId: id)
-                            print("DEBUG VerovioService.extractAvailableParts: Part \(id) has \(staffCount) staves")
 
                             if staffCount > 1 {
                                 // Multiple staves - create separate entries for each
                                 for staffNum in 1...staffCount {
                                     let staffName = "\(name) - \(staffNum == 1 ? "Treble" : staffNum == 2 ? "Bass" : "Staff \(staffNum)")"
                                     staves.append((id, staffNum, staffName))
-                                    print("DEBUG VerovioService.extractAvailableParts: Added staff: \(id)-\(staffNum) - \(staffName)")
                                 }
                             } else {
                                 // Single staff part - also add to staves array for filtering
                                 staves.append((id, 1, name))
-                                print("DEBUG VerovioService.extractAvailableParts: Added single staff: \(id)-1 - \(name)")
                             }
                         }
                     }
                 }
             }
         }
-
-        print("DEBUG VerovioService.extractAvailableParts: Finished extraction - parts: \(parts.count), staves: \(staves.count)")
 
         // Update properties - no need for async since we're already on the correct thread
         // and we need these values to be available immediately for getMIDIForFirstStaff()
@@ -499,7 +482,6 @@ class VerovioService: ObservableObject {
             // Enable all staves by default
             self.enabledStaves = Set(staves.map { "\($0.0)-\($0.1)" })
         }
-        print("DEBUG VerovioService.extractAvailableParts: Updated @Published properties - availableStaves: \(self.availableStaves.count), enabledStaves: \(self.enabledStaves.count)")
     }
 
     /// Extract the number of staves for a given part

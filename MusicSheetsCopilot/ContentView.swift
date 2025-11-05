@@ -468,18 +468,11 @@ struct ContentView: View {
                 metronome.bpm = bpm
 
                 // Load filtered note events for solfege mode (first staff only)
-                print("DEBUG ContentView.reloadScore: Attempting to generate filtered MIDI")
                 if let filteredMidiString = verovioService.getMIDIForFirstStaff() {
-                    print("DEBUG ContentView.reloadScore: Got filtered MIDI string")
                     if let filteredMidiData = Data(base64Encoded: filteredMidiString) {
-                        print("DEBUG ContentView.reloadScore: Successfully decoded filtered MIDI")
                         midiPlayer.loadNoteEventsFromFilteredMIDI(data: filteredMidiData)
                         metronome.setNoteEvents(midiPlayer.noteEvents)
-                    } else {
-                        print("DEBUG ContentView.reloadScore: Failed to decode base64")
                     }
-                } else {
-                    print("DEBUG ContentView.reloadScore: getMIDIForFirstStaff returned nil")
                 }
             }
         } catch {
@@ -535,18 +528,11 @@ struct ContentView: View {
                 metronome.bpm = bpm
 
                 // Load filtered note events for solfege mode (first staff only)
-                print("DEBUG ContentView: Attempting to generate filtered MIDI for first staff")
                 if let filteredMidiString = verovioService.getMIDIForFirstStaff() {
-                    print("DEBUG ContentView: Got filtered MIDI string, length: \(filteredMidiString.count)")
                     if let filteredMidiData = Data(base64Encoded: filteredMidiString) {
-                        print("DEBUG ContentView: Successfully decoded filtered MIDI data")
                         midiPlayer.loadNoteEventsFromFilteredMIDI(data: filteredMidiData)
                         metronome.setNoteEvents(midiPlayer.noteEvents)
-                    } else {
-                        print("DEBUG ContentView: Failed to decode filtered MIDI from base64")
                     }
-                } else {
-                    print("DEBUG ContentView: getMIDIForFirstStaff returned nil")
                 }
             }
 

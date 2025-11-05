@@ -34,9 +34,6 @@ class MIDIPlayer: ObservableObject {
             noteEvents = parseMIDINoteEvents(data: data)
             // Cache the first staff's channel
             firstStaffChannel = noteEvents.map { $0.channel }.min() ?? 0
-            print("DEBUG MIDIPlayer: First staff channel is \(firstStaffChannel)")
-            print("DEBUG MIDIPlayer: All unique channels: \(Set(noteEvents.map { $0.channel }).sorted())")
-            print("DEBUG MIDIPlayer: Total note events: \(noteEvents.count)")
         } catch {
             throw error
         }
@@ -48,14 +45,6 @@ class MIDIPlayer: ObservableObject {
         let filteredEvents = parseMIDINoteEvents(data: data)
         noteEvents = filteredEvents
         firstStaffChannel = filteredEvents.map { $0.channel }.min() ?? 0
-        print("DEBUG MIDIPlayer: Loaded filtered note events")
-        print("DEBUG MIDIPlayer: Filtered channels: \(Set(filteredEvents.map { $0.channel }).sorted())")
-        print("DEBUG MIDIPlayer: Filtered note events count: \(filteredEvents.count)")
-        print("DEBUG MIDIPlayer: Sample filtered notes: \(filteredEvents.prefix(5).map { $0.midiNote })")
-    
-        print("DEBUG MIDIPlayer: Loaded filtered note events")
-        print("DEBUG MIDIPlayer: Filtered channels: \(Set(filteredEvents.map { $0.channel }).sorted())")
-        print("DEBUG MIDIPlayer: Filtered note events: \(filteredEvents.count)")
     }
 
     /// Start or resume playback

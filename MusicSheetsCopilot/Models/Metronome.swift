@@ -67,11 +67,6 @@ class Metronome: ObservableObject {
         self.firstStaffChannel = events.map { $0.channel }.min() ?? 0
         // Calculate total duration from the last note event (add a bit of buffer)
         self.totalDuration = (events.map { $0.time }.max() ?? 0) + 2.0
-        print("DEBUG Metronome: Received \(events.count) note events")
-        print("DEBUG Metronome: First staff channel is \(firstStaffChannel)")
-        print("DEBUG Metronome: All unique channels: \(Set(events.map { $0.channel }).sorted())")
-        print("DEBUG Metronome: Sample notes: \(events.prefix(5).map { $0.midiNote })")
-        print("DEBUG Metronome: Total duration: \(totalDuration) seconds")
     }
 
     /// Get current playback time in metronome-only mode
