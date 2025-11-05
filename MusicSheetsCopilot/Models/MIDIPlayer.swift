@@ -18,7 +18,9 @@ class MIDIPlayer: ObservableObject {
     private var updateTimer: Timer?
     private var midiData: Data?
     // Note events array is internal to allow Metronome to access for metronome-only mode
-    var noteEvents: [(time: TimeInterval, midiNote: UInt8)] = []
+    // Includes channel information: channel 0 = first staff, channel 1 = second staff, etc.
+    var noteEvents: [(time: TimeInterval, midiNote: UInt8, channel: UInt8)] = []
+    private var firstStaffChannel: UInt8 = 0  // Cache the first staff's channel
 
     /// Load MIDI data and prepare for playback
     func loadMIDI(data: Data) throws {
@@ -30,9 +32,30 @@ class MIDIPlayer: ObservableObject {
             duration = midiPlayer?.duration ?? 0
             midiData = data
             noteEvents = parseMIDINoteEvents(data: data)
+            // Cache the first staff's channel
+            firstStaffChannel = noteEvents.map { $0.channel }.min() ?? 0
+            print("DEBUG MIDIPlayer: First staff channel is \(firstStaffChannel)")
+            print("DEBUG MIDIPlayer: All unique channels: \(Set(noteEvents.map { $0.channel }).sorted())")
+            print("DEBUG MIDIPlayer: Total note events: \(noteEvents.count)")
         } catch {
             throw error
         }
+    }
+
+    /// Load note events from separate MIDI data (for filtered staff playback)
+    /// This doesn't affect the main MIDI player, only updates noteEvents for solfege mode
+    func loadNoteEventsFromFilteredMIDI(data: Data) {
+        let filteredEvents = parseMIDINoteEvents(data: data)
+        noteEvents = filteredEvents
+        firstStaffChannel = filteredEvents.map { $0.channel }.min() ?? 0
+        print("DEBUG MIDIPlayer: Loaded filtered note events")
+        print("DEBUG MIDIPlayer: Filtered channels: \(Set(filteredEvents.map { $0.channel }).sorted())")
+        print("DEBUG MIDIPlayer: Filtered note events count: \(filteredEvents.count)")
+        print("DEBUG MIDIPlayer: Sample filtered notes: \(filteredEvents.prefix(5).map { $0.midiNote })")
+    
+        print("DEBUG MIDIPlayer: Loaded filtered note events")
+        print("DEBUG MIDIPlayer: Filtered channels: \(Set(filteredEvents.map { $0.channel }).sorted())")
+        print("DEBUG MIDIPlayer: Filtered note events: \(filteredEvents.count)")
     }
 
     /// Start or resume playback
@@ -140,9 +163,9 @@ class MIDIPlayer: ObservableObject {
         updateTimer = nil
     }
 
-    /// Parse MIDI data to extract note on events with their timestamps
-    private func parseMIDINoteEvents(data: Data) -> [(time: TimeInterval, midiNote: UInt8)] {
-        var events: [(TimeInterval, UInt8)] = []
+    /// Parse MIDI data to extract note on events with their timestamps and channels
+    private func parseMIDINoteEvents(data: Data) -> [(time: TimeInterval, midiNote: UInt8, channel: UInt8)] {
+        var events: [(TimeInterval, UInt8, UInt8)] = []
 
         // Basic MIDI file parsing
         guard data.count > 14 else { return events }
@@ -250,11 +273,12 @@ class MIDIPlayer: ObservableObject {
                     if offset + 1 < data.count {
                         let note = data[offset]
                         let velocity = data[offset+1]
+                        let channel = status & 0x0F  // Extract channel from status byte
                         offset += 2
 
                         // Only add if velocity > 0 (velocity 0 is note off)
                         if velocity > 0 {
-                            events.append((currentTime, note))
+                            events.append((currentTime, note, channel))
                         }
                     }
                 }
@@ -273,11 +297,14 @@ class MIDIPlayer: ObservableObject {
     }
 
     /// Get notes playing at or near a specific time (within 100ms window)
+    /// Note events are already filtered to first staff via loadNoteEventsFromFilteredMIDI
     func getNotesAtTime(_ time: TimeInterval) -> [UInt8] {
+        guard !noteEvents.isEmpty else { return [] }
+
         let tolerance: TimeInterval = 0.1
-        return noteEvents
-            .filter { abs($0.0 - time) < tolerance }
-            .map { $0.1 }
+        let notesAtTime = noteEvents.filter { abs($0.time - time) < tolerance }
+
+        return notesAtTime.map { $0.midiNote }
     }
 
     deinit {

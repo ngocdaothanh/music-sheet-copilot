@@ -6,11 +6,17 @@ struct MultiPageSVGMusicSheetView: View {
     let svgPages: [String]
     let timingData: String
     @ObservedObject var midiPlayer: MIDIPlayer
+    @ObservedObject var metronome: Metronome
+    let playbackMode: ContentView.PlaybackMode
     @EnvironmentObject var verovioService: VerovioService
 
     var body: some View {
+        // Use metronome's currentTime in metronome-only mode, otherwise use MIDI player's time
+        let currentTime = playbackMode == .metronomeOnly ? metronome.currentTime : midiPlayer.currentTime
+        let isPlaying = playbackMode == .metronomeOnly ? metronome.isTicking : midiPlayer.isPlaying
+
         ScrollView(.vertical) {
-            CombinedSVGWebView(svgPages: svgPages, timingData: timingData, currentTime: midiPlayer.currentTime, isPlaying: midiPlayer.isPlaying)
+            CombinedSVGWebView(svgPages: svgPages, timingData: timingData, currentTime: currentTime, isPlaying: isPlaying)
                 .frame(maxWidth: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -41,7 +41,13 @@ struct ContentView: View {
                 MetronomeVisualView(metronome: metronome)
                     .padding(.top, 8)
 
-                MultiPageSVGMusicSheetView(svgPages: pages, timingData: timing, midiPlayer: midiPlayer)
+                MultiPageSVGMusicSheetView(
+                    svgPages: pages,
+                    timingData: timing,
+                    midiPlayer: midiPlayer,
+                    metronome: metronome,
+                    playbackMode: playbackMode
+                )
                     .environmentObject(verovioService)
                     .environmentObject(midiPlayer)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -110,6 +116,12 @@ struct ContentView: View {
             // When metronome-only mode stops, stop the metronome
             if !isPlaying && metronome.isTicking {
                 metronome.stop()
+            }
+        }
+        .onChange(of: metronome.isTicking) { isTicking in
+            // Sync metronome ticking state with isMetronomeOnlyPlaying in metronome-only mode
+            if playbackMode == .metronomeOnly {
+                isMetronomeOnlyPlaying = isTicking
             }
         }
         .onChange(of: playbackMode) { newMode in
@@ -294,7 +306,7 @@ struct ContentView: View {
                     // Staves selector (show if multiple staves available)
                     if verovioService.availableStaves.count > 1 {
                         Menu {
-                            ForEach(verovioService.availableStaves, id: \.1) { partId, staffNumber, staffName in
+                            ForEach(verovioService.availableStaves, id: \.partId) { partId, staffNumber, staffName in
                                 Button(action: {
                                     toggleStaff(partId: partId, staffNumber: staffNumber)
                                 }) {
@@ -454,6 +466,21 @@ struct ContentView: View {
                 try midiPlayer.loadMIDI(data: midiData)
                 let bpm = verovioService.getTempoBPM() ?? 120.0
                 metronome.bpm = bpm
+
+                // Load filtered note events for solfege mode (first staff only)
+                print("DEBUG ContentView.reloadScore: Attempting to generate filtered MIDI")
+                if let filteredMidiString = verovioService.getMIDIForFirstStaff() {
+                    print("DEBUG ContentView.reloadScore: Got filtered MIDI string")
+                    if let filteredMidiData = Data(base64Encoded: filteredMidiString) {
+                        print("DEBUG ContentView.reloadScore: Successfully decoded filtered MIDI")
+                        midiPlayer.loadNoteEventsFromFilteredMIDI(data: filteredMidiData)
+                        metronome.setNoteEvents(midiPlayer.noteEvents)
+                    } else {
+                        print("DEBUG ContentView.reloadScore: Failed to decode base64")
+                    }
+                } else {
+                    print("DEBUG ContentView.reloadScore: getMIDIForFirstStaff returned nil")
+                }
             }
         } catch {
             errorMessage = "Failed to reload score: \(error.localizedDescription)"
@@ -506,8 +533,21 @@ struct ContentView: View {
                 // Set metronome BPM from VerovioService if available
                 let bpm = verovioService.getTempoBPM() ?? 120.0
                 metronome.bpm = bpm
-                // Pass note events to metronome for metronome-only mode
-                metronome.setNoteEvents(midiPlayer.noteEvents)
+
+                // Load filtered note events for solfege mode (first staff only)
+                print("DEBUG ContentView: Attempting to generate filtered MIDI for first staff")
+                if let filteredMidiString = verovioService.getMIDIForFirstStaff() {
+                    print("DEBUG ContentView: Got filtered MIDI string, length: \(filteredMidiString.count)")
+                    if let filteredMidiData = Data(base64Encoded: filteredMidiString) {
+                        print("DEBUG ContentView: Successfully decoded filtered MIDI data")
+                        midiPlayer.loadNoteEventsFromFilteredMIDI(data: filteredMidiData)
+                        metronome.setNoteEvents(midiPlayer.noteEvents)
+                    } else {
+                        print("DEBUG ContentView: Failed to decode filtered MIDI from base64")
+                    }
+                } else {
+                    print("DEBUG ContentView: getMIDIForFirstStaff returned nil")
+                }
             }
 
             // Extract title from filename if needed

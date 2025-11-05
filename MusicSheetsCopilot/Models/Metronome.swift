@@ -19,6 +19,7 @@ class Metronome: ObservableObject {
     @Published var timeSignature: (Int, Int) = (4, 4)
     @Published var mode: MetronomeMode = .tick
     @Published var currentBeat: Int = 0  // Expose current beat position (0-indexed)
+    @Published var currentTime: TimeInterval = 0  // Current playback time in metronome-only mode
 
     private var audioPlayer: AVAudioPlayer?
     private var timer: Timer?
@@ -33,7 +34,9 @@ class Metronome: ObservableObject {
     // For metronome-only mode: track playback position and note events
     private var metronomeStartTime: Date?
     private var metronomePausedTime: TimeInterval = 0
-    private var noteEvents: [(time: TimeInterval, midiNote: UInt8)] = []
+    private var noteEvents: [(time: TimeInterval, midiNote: UInt8, channel: UInt8)] = []
+    private var firstStaffChannel: UInt8 = 0  // Cache the first staff's channel
+    private var totalDuration: TimeInterval = 0  // Total duration based on last note event
 
     // Map MIDI note number to solfege syllable
     // MIDI notes: C=0, C#=1, D=2, D#=3, E=4, F=5, F#=6, G=7, G#=8, A=9, A#=10, B=11
@@ -58,8 +61,17 @@ class Metronome: ObservableObject {
 
     /// Set note events for metronome-only mode (when MIDI is not playing)
     /// This allows the metronome to speak notes based on timing data
-    func setNoteEvents(_ events: [(time: TimeInterval, midiNote: UInt8)]) {
+    func setNoteEvents(_ events: [(time: TimeInterval, midiNote: UInt8, channel: UInt8)]) {
         self.noteEvents = events
+        // Cache the first staff's channel (lowest channel number)
+        self.firstStaffChannel = events.map { $0.channel }.min() ?? 0
+        // Calculate total duration from the last note event (add a bit of buffer)
+        self.totalDuration = (events.map { $0.time }.max() ?? 0) + 2.0
+        print("DEBUG Metronome: Received \(events.count) note events")
+        print("DEBUG Metronome: First staff channel is \(firstStaffChannel)")
+        print("DEBUG Metronome: All unique channels: \(Set(events.map { $0.channel }).sorted())")
+        print("DEBUG Metronome: Sample notes: \(events.prefix(5).map { $0.midiNote })")
+        print("DEBUG Metronome: Total duration: \(totalDuration) seconds")
     }
 
     /// Get current playback time in metronome-only mode
@@ -67,7 +79,14 @@ class Metronome: ObservableObject {
         guard let startTime = metronomeStartTime else { return 0 }
         let elapsed = Date().timeIntervalSince(startTime)
         // Adjust for playback rate
-        return metronomePausedTime + (elapsed * Double(playbackRate))
+        let time = metronomePausedTime + (elapsed * Double(playbackRate))
+
+        // Update the published currentTime
+        DispatchQueue.main.async { [weak self] in
+            self?.currentTime = time
+        }
+
+        return time
     }
 
     // Provide a short tick sound (440Hz sine wave, 0.05s)
@@ -152,6 +171,7 @@ class Metronome: ObservableObject {
     func stop() {
         isTicking = false
         currentBeat = 0  // Reset visual beat indicator
+        currentTime = 0  // Reset playback time
         timer?.invalidate()
         timer = nil
         lastSpokenTime = -1
@@ -179,6 +199,16 @@ class Metronome: ObservableObject {
     }
 
     private func tick() {
+        // Check if we've reached the end of the piece in metronome-only mode
+        if midiPlayer?.isPlaying != true && totalDuration > 0 {
+            let currentMetronomeTime = getCurrentMetronomeTime()
+            if currentMetronomeTime >= totalDuration {
+                // Reached the end - stop playback
+                stop()
+                return
+            }
+        }
+
         switch mode {
         case .tick:
             playTickSound()
@@ -269,12 +299,14 @@ class Metronome: ObservableObject {
 
     /// Speak notes at the current time in metronome-only mode
     /// Uses the noteEvents array and metronome timing to determine which notes to speak
+    /// Note events are already filtered to first staff only
     private func speakNotesAtMetronomeTime() {
         guard !noteEvents.isEmpty else { return }
 
         let currentTime = getCurrentMetronomeTime()
 
         // Find notes that should be spoken at the current time (within a small tolerance)
+        // Note events are already filtered to first staff via Verovio
         let tolerance: TimeInterval = 0.1
         let notesToSpeak = noteEvents.filter { event in
             abs(event.time - currentTime) < tolerance
