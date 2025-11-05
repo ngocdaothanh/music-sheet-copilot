@@ -19,6 +19,16 @@ struct ContentView: View {
     @State private var metronomeCancellable: AnyCancellable?
     @State private var showTempoPopover = false
 
+    /// Playback mode: MIDI playback with optional metronome, or metronome-only for practice
+    enum PlaybackMode {
+        case midiWithMetronome  // Play MIDI, metronome enabled/disabled by toggle
+        case metronomeOnly      // Play only metronome (for practicing on real piano)
+    }
+    @State private var playbackMode: PlaybackMode = .midiWithMetronome
+
+    /// Tracks if metronome-only playback is active
+    @State private var isMetronomeOnlyPlaying = false
+
     init() {
         // Can't set metronome.midiPlayer in init with @StateObject
         // Will set it in onAppear
@@ -91,10 +101,26 @@ struct ContentView: View {
             isImporting = true
         }
         .onChange(of: midiPlayer.isPlaying) { isPlaying in
-            // Stop metronome when playback stops (e.g., when song finishes)
+            // Stop metronome when MIDI playback stops (e.g., when song finishes)
+            if !isPlaying && metronome.isTicking && playbackMode == .midiWithMetronome {
+                metronome.stop()
+            }
+        }
+        .onChange(of: isMetronomeOnlyPlaying) { isPlaying in
+            // When metronome-only mode stops, stop the metronome
             if !isPlaying && metronome.isTicking {
                 metronome.stop()
             }
+        }
+        .onChange(of: playbackMode) { newMode in
+            // Stop any current playback when switching modes
+            if midiPlayer.isPlaying {
+                midiPlayer.stop()
+            }
+            if isMetronomeOnlyPlaying {
+                isMetronomeOnlyPlaying = false
+            }
+            metronome.stop()
         }
         .onAppear {
             // Set the MIDIPlayer reference for the metronome
@@ -115,37 +141,65 @@ struct ContentView: View {
                 if svgPages != nil {
                     // Play/Pause button
                     Button(action: {
-                        midiPlayer.togglePlayPause()
-                        // Sync metronome with playback
-                        if midiPlayer.isPlaying {
-                            // Set BPM from VerovioService if available, else default
-                            let bpm = verovioService.getTempoBPM() ?? 120.0
-                            metronome.bpm = bpm
-                            metronome.start()
-                        } else {
-                            metronome.stop()
-                        }
+                        togglePlayback()
                     }) {
-                        Image(systemName: midiPlayer.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                        let isAnyPlaying = midiPlayer.isPlaying || isMetronomeOnlyPlaying
+                        Image(systemName: isAnyPlaying ? "pause.circle.fill" : "play.circle.fill")
                             .font(.title2)
                     }
-                    .help(midiPlayer.isPlaying ? "Pause" : "Play")
+                    .help(getPlayButtonHelp())
 
                     Divider()
 
-                    // Metronome toggle
-                    Toggle(isOn: $metronome.isEnabled) {
-                        Image(systemName: "metronome")
+                    // Playback mode selector
+                    Menu {
+                        Button {
+                            playbackMode = .midiWithMetronome
+                        } label: {
+                            HStack {
+                                if playbackMode == .midiWithMetronome {
+                                    Image(systemName: "checkmark")
+                                }
+                                Text("MIDI Playback")
+                            }
+                        }
+
+                        Button {
+                            playbackMode = .metronomeOnly
+                            // Auto-enable metronome when switching to metronome-only mode
+                            if !metronome.isEnabled {
+                                metronome.isEnabled = true
+                            }
+                        } label: {
+                            HStack {
+                                if playbackMode == .metronomeOnly {
+                                    Image(systemName: "checkmark")
+                                }
+                                Text("Metronome Only (Practice)")
+                            }
+                        }
+                    } label: {
+                        Image(systemName: playbackMode == .midiWithMetronome ? "speaker.wave.2.fill" : "metronome.fill")
                     }
-                    .toggleStyle(.button)
-                    .help(metronome.isEnabled ? "Disable Metronome" : "Enable Metronome")
-                    .onChange(of: metronome.isEnabled) { enabled in
-                        if enabled && midiPlayer.isPlaying {
-                            let bpm = verovioService.getTempoBPM() ?? 120.0
-                            metronome.bpm = bpm
-                            metronome.start()
-                        } else {
-                            metronome.stop()
+                    .help(playbackMode == .midiWithMetronome ? "Playing MIDI with optional metronome" : "Playing metronome only for practice")
+
+                    Divider()
+
+                    // Metronome toggle (only show in MIDI mode, always enabled in metronome-only mode)
+                    if playbackMode == .midiWithMetronome {
+                        Toggle(isOn: $metronome.isEnabled) {
+                            Image(systemName: "metronome")
+                        }
+                        .toggleStyle(.button)
+                        .help(metronome.isEnabled ? "Disable Metronome" : "Enable Metronome")
+                        .onChange(of: metronome.isEnabled) { enabled in
+                            if enabled && midiPlayer.isPlaying {
+                                let bpm = verovioService.getTempoBPM() ?? 120.0
+                                metronome.bpm = bpm
+                                metronome.start()
+                            } else {
+                                metronome.stop()
+                            }
                         }
                     }
 
@@ -284,6 +338,49 @@ struct ContentView: View {
                     }
                 }
             }
+        }
+    }
+
+    // MARK: - Playback Control Methods
+
+    /// Toggle playback based on current mode (MIDI or metronome-only)
+    private func togglePlayback() {
+        switch playbackMode {
+        case .midiWithMetronome:
+            midiPlayer.togglePlayPause()
+            // Sync metronome with MIDI playback
+            if midiPlayer.isPlaying && metronome.isEnabled {
+                let bpm = verovioService.getTempoBPM() ?? 120.0
+                metronome.bpm = bpm
+                metronome.start()
+            } else {
+                metronome.stop()
+            }
+
+        case .metronomeOnly:
+            isMetronomeOnlyPlaying.toggle()
+            if isMetronomeOnlyPlaying {
+                // Start metronome-only playback
+                let bpm = verovioService.getTempoBPM() ?? 120.0
+                metronome.bpm = bpm
+                metronome.isEnabled = true  // Ensure metronome is enabled
+                metronome.start()
+            } else {
+                // Stop metronome
+                metronome.stop()
+            }
+        }
+    }
+
+    /// Get appropriate help text for the play button based on current mode and state
+    private func getPlayButtonHelp() -> String {
+        let isAnyPlaying = midiPlayer.isPlaying || isMetronomeOnlyPlaying
+
+        switch playbackMode {
+        case .midiWithMetronome:
+            return isAnyPlaying ? "Pause MIDI Playback" : "Play MIDI"
+        case .metronomeOnly:
+            return isAnyPlaying ? "Stop Metronome" : "Play Metronome (Practice Mode)"
         }
     }
 
