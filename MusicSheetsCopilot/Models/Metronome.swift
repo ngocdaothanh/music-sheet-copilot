@@ -22,9 +22,12 @@ class Metronome: ObservableObject {
     @Published var currentTime: TimeInterval = 0  // Current playback time in metronome-only mode
 
     private var audioPlayer: AVAudioPlayer?
-    private var timer: Timer?
+    private var timer: TimerProtocol?  // Changed from Timer? to TimerProtocol?
     private var tickCount: Int = 0
     private var speechSynthesizer = AVSpeechSynthesizer()
+    
+    // Dependency injection for time provider (defaults to system time)
+    private let timeProvider: TimeProvider
 
     // Reference to MIDIPlayer for getting current notes (when MIDI is playing)
     weak var midiPlayer: MIDIPlayer?
@@ -38,6 +41,11 @@ class Metronome: ObservableObject {
     var firstStaffChannel: UInt8 = 0  // Cache the first staff's channel (internal for testing)
     var totalDuration: TimeInterval = 0  // Total duration based on last note event (internal for testing)
     private var lastBeatTime: TimeInterval = 0  // Track when we last advanced the beat (for solfege mode)
+    
+    // Initializer with dependency injection (defaults to system time provider)
+    init(timeProvider: TimeProvider = SystemTimeProvider()) {
+        self.timeProvider = timeProvider
+    }
 
     // Map MIDI note number to solfege syllable
     // MIDI notes: C=0, C#=1, D=2, D#=3, E=4, F=5, F#=6, G=7, G#=8, A=9, A#=10, B=11
@@ -73,7 +81,7 @@ class Metronome: ObservableObject {
     /// Get current playback time in metronome-only mode
     private func getCurrentMetronomeTime() -> TimeInterval {
         guard let startTime = metronomeStartTime else { return 0 }
-        let elapsed = Date().timeIntervalSince(startTime)
+        let elapsed = timeProvider.now().timeIntervalSince(startTime)
         // Adjust for playback rate
         let time = metronomePausedTime + (elapsed * Double(playbackRate))
 
@@ -135,7 +143,7 @@ class Metronome: ObservableObject {
         lastBeatTime = 0  // Reset beat timing
 
         // Initialize metronome-only mode timing
-        metronomeStartTime = Date()
+        metronomeStartTime = timeProvider.now()
         metronomePausedTime = 0
 
         // Play an immediate tick/count when starting
@@ -190,7 +198,7 @@ class Metronome: ObservableObject {
         // When using solfege names, check more frequently to catch note events
         let interval = mode == .solfege ? 0.05 : (60.0 / adjustedBPM)
 
-        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+        timer = timeProvider.scheduleTimer(interval: interval, repeats: true) { [weak self] in
             self?.tick()
         }
     }

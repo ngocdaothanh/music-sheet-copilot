@@ -41,17 +41,6 @@ This directory contains automated tests for the MusicSheetsCopilot app using **S
 xcodebuild test -scheme MusicSheetsCopilot -destination 'platform=macOS'
 ```
 
-### 📋 Future Tests (Optional)
-
-**Metronome.swift (requires mocking):**
-- ⏳ Time-based beat progression (needs `TimeProvider` protocol)
-- ⏳ Auto-stop at end of piece (needs `TimeProvider` protocol)
-- ⏳ Start/stop behavior (needs timer mocking)
-
-**MIDIPlayer.swift (requires real MIDI files):**
-- ⏳ Full MIDI parsing from base64 with fixture files
-- ⏳ Complete note event extraction with real data
-
 ## Tips
 
 1. **Run tests frequently** - After every code change
