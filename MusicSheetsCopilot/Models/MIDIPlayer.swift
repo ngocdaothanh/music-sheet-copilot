@@ -17,7 +17,8 @@ class MIDIPlayer: ObservableObject {
     private var midiPlayer: AVMIDIPlayer?
     private var updateTimer: Timer?
     private var midiData: Data?
-    private var noteEvents: [(time: TimeInterval, midiNote: UInt8)] = []
+    // Note events array is internal to allow Metronome to access for metronome-only mode
+    var noteEvents: [(time: TimeInterval, midiNote: UInt8)] = []
 
     /// Load MIDI data and prepare for playback
     func loadMIDI(data: Data) throws {

@@ -3,8 +3,8 @@ import AVFoundation
 
 enum MetronomeMode {
     case tick        // Traditional tick sound
-    case solfege     // Do Re Mi based on actual notes
     case counting    // One Two Three Four based on beats
+    case solfege     // Do Re Mi based on actual notes
 }
 
 class Metronome: ObservableObject {
@@ -25,10 +25,15 @@ class Metronome: ObservableObject {
     private var tickCount: Int = 0
     private var speechSynthesizer = AVSpeechSynthesizer()
 
-    // Reference to MIDIPlayer for getting current notes
+    // Reference to MIDIPlayer for getting current notes (when MIDI is playing)
     weak var midiPlayer: MIDIPlayer?
     private var lastSpokenTime: TimeInterval = -1
     private var lastSpokenNotes: Set<UInt8> = []
+
+    // For metronome-only mode: track playback position and note events
+    private var metronomeStartTime: Date?
+    private var metronomePausedTime: TimeInterval = 0
+    private var noteEvents: [(time: TimeInterval, midiNote: UInt8)] = []
 
     // Map MIDI note number to solfege syllable
     // MIDI notes: C=0, C#=1, D=2, D#=3, E=4, F=5, F#=6, G=7, G#=8, A=9, A#=10, B=11
@@ -49,6 +54,20 @@ class Metronome: ObservableObject {
             "Si"   // B
         ]
         return solfegeMap[noteInOctave]
+    }
+
+    /// Set note events for metronome-only mode (when MIDI is not playing)
+    /// This allows the metronome to speak notes based on timing data
+    func setNoteEvents(_ events: [(time: TimeInterval, midiNote: UInt8)]) {
+        self.noteEvents = events
+    }
+
+    /// Get current playback time in metronome-only mode
+    private func getCurrentMetronomeTime() -> TimeInterval {
+        guard let startTime = metronomeStartTime else { return 0 }
+        let elapsed = Date().timeIntervalSince(startTime)
+        // Adjust for playback rate
+        return metronomePausedTime + (elapsed * Double(playbackRate))
     }
 
     // Provide a short tick sound (440Hz sine wave, 0.05s)
@@ -99,6 +118,10 @@ class Metronome: ObservableObject {
         lastSpokenTime = -1
         lastSpokenNotes = []
 
+        // Initialize metronome-only mode timing
+        metronomeStartTime = Date()
+        metronomePausedTime = 0
+
         // Play an immediate tick/count when starting
         if mode == .tick {
             playTickSound()
@@ -116,6 +139,11 @@ class Metronome: ObservableObject {
                 tickCount = 0
                 currentBeat = 0
             }
+        } else if mode == .solfege {
+            // In solfege mode, speak the first note immediately if available
+            if !noteEvents.isEmpty && midiPlayer?.isPlaying != true {
+                speakNotesAtMetronomeTime()
+            }
         }
 
         updateTimer()
@@ -128,6 +156,8 @@ class Metronome: ObservableObject {
         timer = nil
         lastSpokenTime = -1
         lastSpokenNotes = []
+        metronomeStartTime = nil
+        metronomePausedTime = 0
         if speechSynthesizer.isSpeaking {
             speechSynthesizer.stopSpeaking(at: .immediate)
         }
@@ -158,7 +188,14 @@ class Metronome: ObservableObject {
                 tickCount = 0
             }
         case .solfege:
-            speakNotesAtCurrentTime()
+            // Check if MIDI is playing or if we're in metronome-only mode
+            if midiPlayer?.isPlaying == true {
+                // MIDI is playing: speak notes from MIDI playback
+                speakNotesAtCurrentTime()
+            } else {
+                // Metronome-only mode: speak notes based on timing data
+                speakNotesAtMetronomeTime()
+            }
         case .counting:
             currentBeat = tickCount  // Update visual indicator before incrementing
             speakCount()
@@ -208,6 +245,63 @@ class Metronome: ObservableObject {
 
         // Get unique solfege syllables for the notes
         let syllables = notes.map { midiNoteToSolfege($0) }
+        let uniqueSyllables = Array(Set(syllables)).sorted()
+
+        // Speak the note names
+        if !uniqueSyllables.isEmpty {
+            lastSpokenTime = currentTime
+            lastSpokenNotes = currentNotesSet
+            let text = uniqueSyllables.joined(separator: " ")
+
+            let utterance = AVSpeechUtterance(string: text)
+            utterance.rate = 0.55
+            utterance.volume = 1.0
+            utterance.pitchMultiplier = 1.0
+
+            // Stop any ongoing speech
+            if speechSynthesizer.isSpeaking {
+                speechSynthesizer.stopSpeaking(at: .immediate)
+            }
+
+            speechSynthesizer.speak(utterance)
+        }
+    }
+
+    /// Speak notes at the current time in metronome-only mode
+    /// Uses the noteEvents array and metronome timing to determine which notes to speak
+    private func speakNotesAtMetronomeTime() {
+        guard !noteEvents.isEmpty else { return }
+
+        let currentTime = getCurrentMetronomeTime()
+
+        // Find notes that should be spoken at the current time (within a small tolerance)
+        let tolerance: TimeInterval = 0.1
+        let notesToSpeak = noteEvents.filter { event in
+            abs(event.time - currentTime) < tolerance
+        }
+
+        guard !notesToSpeak.isEmpty else {
+            // If no notes at current time, clear last spoken notes
+            if !lastSpokenNotes.isEmpty {
+                lastSpokenNotes = []
+            }
+            return
+        }
+
+        let currentNotesSet = Set(notesToSpeak.map { $0.midiNote })
+
+        // Only speak if we have NEW notes (different from what we last spoke)
+        if currentNotesSet == lastSpokenNotes {
+            return
+        }
+
+        // Also check time to avoid speaking too frequently even if notes changed
+        if abs(currentTime - lastSpokenTime) < 0.15 {
+            return
+        }
+
+        // Get unique solfege syllables for the notes
+        let syllables = notesToSpeak.map { midiNoteToSolfege($0.midiNote) }
         let uniqueSyllables = Array(Set(syllables)).sorted()
 
         // Speak the note names

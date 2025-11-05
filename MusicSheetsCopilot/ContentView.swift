@@ -206,25 +206,46 @@ struct ContentView: View {
                     // Metronome mode selector (only show when metronome is enabled)
                     if metronome.isEnabled {
                         Menu {
-                            Button("Tick") {
+                            Button {
                                 metronome.mode = .tick
                                 if metronome.isTicking {
                                     metronome.stop()
                                     metronome.start()
                                 }
+                            } label: {
+                                HStack {
+                                    if metronome.mode == .tick {
+                                        Image(systemName: "checkmark")
+                                    }
+                                    Text("Tick")
+                                }
                             }
-                            Button("Count (1-2-3-4)") {
+                            Button {
                                 metronome.mode = .counting
                                 if metronome.isTicking {
                                     metronome.stop()
                                     metronome.start()
                                 }
+                            } label: {
+                                HStack {
+                                    if metronome.mode == .counting {
+                                        Image(systemName: "checkmark")
+                                    }
+                                    Text("Count (1-2-3-4)")
+                                }
                             }
-                            Button("Solfege (Do-Re-Mi)") {
+                            Button {
                                 metronome.mode = .solfege
                                 if metronome.isTicking {
                                     metronome.stop()
                                     metronome.start()
+                                }
+                            } label: {
+                                HStack {
+                                    if metronome.mode == .solfege {
+                                        Image(systemName: "checkmark")
+                                    }
+                                    Text("Solfege (Do-Re-Mi)")
                                 }
                             }
                         } label: {
@@ -485,6 +506,8 @@ struct ContentView: View {
                 // Set metronome BPM from VerovioService if available
                 let bpm = verovioService.getTempoBPM() ?? 120.0
                 metronome.bpm = bpm
+                // Pass note events to metronome for metronome-only mode
+                metronome.setNoteEvents(midiPlayer.noteEvents)
             }
 
             // Extract title from filename if needed
