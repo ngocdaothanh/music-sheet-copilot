@@ -306,7 +306,8 @@ struct ContentView: View {
                     // Staves selector (show if multiple staves available)
                     if verovioService.availableStaves.count > 1 {
                         Menu {
-                            ForEach(verovioService.availableStaves, id: \.partId) { partId, staffNumber, staffName in
+                            ForEach(verovioService.availableStaves.indices, id: \.self) { index in
+                                let (partId, staffNumber, staffName) = verovioService.availableStaves[index]
                                 Button(action: {
                                     toggleStaff(partId: partId, staffNumber: staffNumber)
                                 }) {

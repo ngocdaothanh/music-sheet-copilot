@@ -191,13 +191,26 @@ class VerovioService: ObservableObject {
         // Always extract to ensure availableStaves is populated for getMIDIForFirstStaff()
         extractAvailableParts(from: musicXMLString)
 
-        // Hide disabled staves (for multi-staff single parts like piano)
+        // Build set of enabled part IDs based on enabled staves
+        // This handles both multi-staff parts and single-staff parts correctly
+        var enabledPartIdsFromStaves = Set<String>()
+        for (partId, staffNumber, _) in availableStaves {
+            let staveKey = "\(partId)-\(staffNumber)"
+            if enabledStaves.isEmpty || enabledStaves.contains(staveKey) {
+                enabledPartIdsFromStaves.insert(partId)
+            }
+        }
+
+        // Hide disabled staves (for multi-staff single parts like piano with treble/bass)
         if !enabledStaves.isEmpty && enabledStaves.count < availableStaves.count {
             musicXMLString = hideDisabledStaves(in: musicXMLString, enabledStaves: enabledStaves)
         }
 
-        // Hide disabled parts (for multi-part scores)
-        if !enabledPartIds.isEmpty && enabledPartIds.count < availableParts.count {
+        // Hide disabled parts (for multi-part scores or single-staff parts treated as staves)
+        if !enabledPartIdsFromStaves.isEmpty && enabledPartIdsFromStaves.count < availableParts.count {
+            musicXMLString = hideDisabledParts(in: musicXMLString, enabledIds: enabledPartIdsFromStaves)
+        } else if !enabledPartIds.isEmpty && enabledPartIds.count < availableParts.count {
+            // Fallback to original part filtering if no staves are defined
             musicXMLString = hideDisabledParts(in: musicXMLString, enabledIds: enabledPartIds)
         }
 
@@ -478,8 +491,9 @@ class VerovioService: ObservableObject {
 
         // Update staves
         self.availableStaves = staves
-        if !staves.isEmpty {
-            // Enable all staves by default
+        // Only enable all staves by default if enabledStaves is currently empty (first load)
+        // This preserves user selections when reloading the same file
+        if !staves.isEmpty && self.enabledStaves.isEmpty {
             self.enabledStaves = Set(staves.map { "\($0.0)-\($0.1)" })
         }
     }
