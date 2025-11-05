@@ -37,6 +37,7 @@ class Metronome: ObservableObject {
     private var noteEvents: [(time: TimeInterval, midiNote: UInt8, channel: UInt8)] = []
     private var firstStaffChannel: UInt8 = 0  // Cache the first staff's channel
     private var totalDuration: TimeInterval = 0  // Total duration based on last note event
+    private var lastBeatTime: TimeInterval = 0  // Track when we last advanced the beat (for solfege mode)
 
     // Map MIDI note number to solfege syllable
     // MIDI notes: C=0, C#=1, D=2, D#=3, E=4, F=5, F#=6, G=7, G#=8, A=9, A#=10, B=11
@@ -131,6 +132,7 @@ class Metronome: ObservableObject {
         currentBeat = 0  // Reset visual beat indicator
         lastSpokenTime = -1
         lastSpokenNotes = []
+        lastBeatTime = 0  // Reset beat timing
 
         // Initialize metronome-only mode timing
         metronomeStartTime = Date()
@@ -213,7 +215,31 @@ class Metronome: ObservableObject {
                 tickCount = 0
             }
         case .solfege:
-            // Check if MIDI is playing or if we're in metronome-only mode
+            // In solfege mode, update beat based on time, not on every timer tick
+            // Get the current playback time
+            let currentTime: TimeInterval
+            if midiPlayer?.isPlaying == true {
+                currentTime = midiPlayer!.currentTime
+            } else {
+                currentTime = getCurrentMetronomeTime()
+            }
+
+            // Calculate beat duration based on ORIGINAL BPM (not adjusted)
+            // Note: The MIDI timestamps are based on the original BPM from the score
+            // getCurrentMetronomeTime() already accounts for playbackRate in the elapsed time
+            // So we should use the original BPM to calculate beat positions
+            let beatDuration = 60.0 / bpm
+
+            // Determine which beat we should be on based on elapsed time
+            let currentBeatIndex = Int(currentTime / beatDuration) % timeSignature.0
+
+            // Only update if the beat has actually changed
+            if currentBeatIndex != currentBeat {
+                currentBeat = currentBeatIndex
+                tickCount = currentBeatIndex
+            }
+
+            // Speak notes at the current time
             if midiPlayer?.isPlaying == true {
                 // MIDI is playing: speak notes from MIDI playback
                 speakNotesAtCurrentTime()
