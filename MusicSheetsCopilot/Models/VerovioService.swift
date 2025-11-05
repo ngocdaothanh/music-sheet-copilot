@@ -552,7 +552,7 @@ class VerovioService: ObservableObject {
     ///   - musicXML: The MusicXML string to filter
     ///   - enabledStaves: Set of enabled staff keys in format "partId-staffNumber"
     /// - Returns: Filtered MusicXML string with disabled staff content removed
-    private func hideDisabledStaves(in musicXML: String, enabledStaves: Set<String>) -> String {
+    func hideDisabledStaves(in musicXML: String, enabledStaves: Set<String>) -> String {
         var filtered = musicXML
 
         // Determine which staves to hide for each part
@@ -592,7 +592,7 @@ class VerovioService: ObservableObject {
     ///   - musicXML: The MusicXML string to filter
     ///   - enabledIds: Set of enabled part IDs
     /// - Returns: Filtered MusicXML string with disabled part content removed
-    private func hideDisabledParts(in musicXML: String, enabledIds: Set<String>) -> String {
+    func hideDisabledParts(in musicXML: String, enabledIds: Set<String>) -> String {
         var filtered = musicXML
 
         // Remove notes from disabled parts

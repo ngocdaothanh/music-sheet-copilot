@@ -101,7 +101,6 @@ struct VerovioServiceTests {
     func staffNameFormatting() {
         // Test that staff names are properly formatted for UI display
         let partName = "Piano"
-        let staffNumber = 1
         let staffName = "Treble"
 
         let displayName = "\(partName) - \(staffName)"

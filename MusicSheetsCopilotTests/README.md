@@ -43,9 +43,9 @@ xcodebuild test -scheme MusicSheetsCopilot -destination 'platform=macOS'
 
 ## Test Coverage
 
-### ✅ Currently Tested
+### ✅ Currently Tested (70+ tests)
 
-**Metronome.swift:**
+**MetronomeTests.swift (18 tests):**
 - ✅ `midiNoteToSolfege()` - All note conversions including sharps/flats and octaves
 - ✅ `setNoteEvents()` - Duration calculation and channel caching
 - ✅ Beat calculation logic - Different BPMs and time signatures
@@ -53,28 +53,44 @@ xcodebuild test -scheme MusicSheetsCopilot -destination 'platform=macOS'
 - ✅ Initial state validation
 - ✅ Mode enum existence
 
-### 📋 To Be Added
+**VerovioServiceTests.swift (15 tests):**
+- ✅ Staff key formatting and validation
+- ✅ Enabled staves filtering logic
+- ✅ Part ID extraction from staff keys
+- ✅ MIDI channel extraction from status bytes
+- ✅ Staff name formatting and uniqueness detection
+
+**VerovioServiceIntegrationTests.swift (10 tests):**
+- ✅ `hideDisabledStaves()` - Staff element removal from MusicXML
+- ✅ `hideDisabledParts()` - Part element removal from MusicXML
+- ✅ Load twinkle_twinkle.xml - Staff detection and MIDI generation
+- ✅ `getMIDIForFirstStaff()` - First staff filtering verification
+- ✅ Enabled staves initialization on file load
+- ✅ Staff selection toggling
+- ✅ Staff name uniqueness (catches duplicate name bugs)
+
+**MIDIPlayerTests.swift (29 tests):**
+- ✅ MIDI channel extraction from status bytes (all channels)
+- ✅ Note On/Off message type detection
+- ✅ Note event structure and sorting
+- ✅ Note event filtering by channel and time
+- ✅ Find notes at time with tolerance
+- ✅ MIDI note number validation
+- ✅ First staff channel detection
+- ✅ Base64 encoding/decoding for MIDI data
+
+### 📋 Future Tests (Optional)
 
 **Metronome.swift (requires mocking):**
 - ⏳ Time-based beat progression (needs `TimeProvider` protocol)
 - ⏳ Auto-stop at end of piece (needs `TimeProvider` protocol)
 - ⏳ Start/stop behavior (needs timer mocking)
 
-**VerovioService.swift:**
-- ⏳ `hideDisabledStaves()` regex correctness
-- ⏳ `hideDisabledParts()` regex correctness
-- ⏳ `extractAvailableParts()` parsing
-- ⏳ Staff count extraction
-
-**MIDIPlayer.swift:**
-- ⏳ MIDI parsing from base64
-- ⏳ Note event extraction
-- ⏳ Channel extraction from status bytes
+**MIDIPlayer.swift (requires real MIDI files):**
+- ⏳ Full MIDI parsing from base64 with fixture files
+- ⏳ Complete note event extraction with real data
 
 **Integration Tests:**
-- ⏳ Load MusicXML file → Verovio rendering → MIDI generation
-- ⏳ Staff filtering produces correct MIDI
-- ⏳ First staff filtering (solfege mode)
 
 ## Test Results Interpretation
 
