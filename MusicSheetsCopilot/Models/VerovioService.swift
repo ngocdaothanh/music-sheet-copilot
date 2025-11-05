@@ -109,7 +109,8 @@ class VerovioService: ObservableObject {
             }
         }
 
-        // Method 4: Search in Xcode DerivedData (development workaround)
+        // Method 4: Search in Xcode DerivedData (development workaround, macOS only)
+        #if os(macOS)
         if foundResourcePath == nil {
             let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
             let derivedDataPath = (homeDir as NSString).appendingPathComponent("Library/Developer/Xcode/DerivedData")
@@ -129,6 +130,7 @@ class VerovioService: ObservableObject {
             } catch {
             }
         }
+        #endif
 
         // Set the resource path if we found it
         if let resourcePath = foundResourcePath {
