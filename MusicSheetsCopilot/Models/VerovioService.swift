@@ -2,6 +2,22 @@ import Foundation
 import VerovioToolkit
 
 /// A service class to interact with the Verovio music notation library
+///
+/// This service provides staff and part filtering for MusicXML files using direct element removal.
+///
+/// ## Why Direct Element Removal?
+/// Verovio doesn't respect MusicXML's `print-object="no"` attribute for visual rendering.
+/// Converting MusicXML to MEI doesn't help because:
+/// - Swift bindings don't expose C++ visibility control methods
+/// - MEI text manipulation would be equally complex
+/// - Double parsing (MusicXML→MEI→SVG) adds unnecessary overhead
+///
+/// ## Alternative Approach (Not Currently Used)
+/// A more robust but slower approach would be to use a proper XML parser like XMLCoder
+/// to parse the MusicXML DOM and programmatically remove elements. This could be considered
+/// for future improvements if regex patterns become too complex to maintain.
+///
+/// For now, direct regex-based element removal is the most efficient solution.
 class VerovioService: ObservableObject {
     private let toolkit: VerovioToolkit
 
@@ -14,6 +30,12 @@ class VerovioService: ObservableObject {
     // Staves support
     @Published var availableStaves: [(partId: String, staffNumber: Int, name: String)] = []
     @Published var enabledStaves: Set<String> = [] // Format: "partId-staffNumber"
+
+    // MARK: - Cached Regex Patterns
+
+    /// Cache for compiled regex patterns to avoid recompiling on each filter operation.
+    /// Patterns are created lazily and stored for reuse.
+    private var regexCache: [String: NSRegularExpression] = [:]
 
     /// Configuration options for rendering
     struct RenderOptions {
@@ -443,7 +465,27 @@ class VerovioService: ObservableObject {
     }
 
     /// Hide disabled staves by removing their content from MusicXML
-    /// Verovio doesn't respect print-object="no" for rendering, so we must remove elements
+    ///
+    /// Verovio doesn't respect MusicXML's `print-object="no"` attribute for visual rendering,
+    /// so we must physically remove note and direction elements from disabled staves.
+    ///
+    /// ## Why Element Removal Instead of Visibility Attributes?
+    /// - `print-object="no"` only affects MIDI generation in Verovio, not visual rendering
+    /// - MEI conversion doesn't help (Swift bindings lack C++ visibility API access)
+    /// - Direct element removal is the most efficient approach for MusicXML
+    ///
+    /// ## What Gets Removed?
+    /// - `<note>` elements with matching `<staff>` child elements
+    /// - `<direction>` elements (dynamics, pedals, etc.) with matching `<staff>` child elements
+    ///
+    /// ## Future Improvement
+    /// Could use XMLCoder or similar XML DOM parser for more robust manipulation,
+    /// but regex approach is faster and sufficient for current use case.
+    ///
+    /// - Parameters:
+    ///   - musicXML: The MusicXML string to filter
+    ///   - enabledStaves: Set of enabled staff keys in format "partId-staffNumber"
+    /// - Returns: Filtered MusicXML string with disabled staff content removed
     private func hideDisabledStaves(in musicXML: String, enabledStaves: Set<String>) -> String {
         var filtered = musicXML
 
@@ -453,21 +495,37 @@ class VerovioService: ObservableObject {
             if !enabledStaves.contains(staveKey) {
                 // Remove notes on this staff
                 let notePattern = "<note(?:(?!</note>).)*<staff>\(staffNumber)</staff>(?:(?!</note>).)*</note>"
-                if let regex = try? NSRegularExpression(pattern: notePattern, options: [.dotMatchesLineSeparators]) {
+                if let regex = getCachedRegex(pattern: notePattern) {
                     filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
                 }
 
                 // Remove directions (dynamics, pedals, etc.) on this staff
                 let directionPattern = "<direction(?:(?!</direction>).)*<staff>\(staffNumber)</staff>(?:(?!</direction>).)*</direction>"
-                if let regex = try? NSRegularExpression(pattern: directionPattern, options: [.dotMatchesLineSeparators]) {
+                if let regex = getCachedRegex(pattern: directionPattern) {
                     filtered = regex.stringByReplacingMatches(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count), withTemplate: "")
                 }
             }
         }
 
         return filtered
-    }    /// Hide disabled parts by removing their content from MusicXML
-    /// Verovio doesn't respect print-object="no" for rendering, so we must remove elements
+    }
+
+    /// Hide disabled parts by removing their content from MusicXML
+    ///
+    /// Similar to `hideDisabledStaves`, this removes all note and direction elements
+    /// from disabled parts. This is used for multi-part scores where entire instruments
+    /// should be hidden (e.g., hiding the piano part in an ensemble piece).
+    ///
+    /// ## Implementation Details
+    /// - Finds the `<part>` element by ID
+    /// - Removes all `<note>` elements within that part
+    /// - Removes all `<direction>` elements within that part
+    /// - Preserves the part structure (empty part remains for proper Verovio parsing)
+    ///
+    /// - Parameters:
+    ///   - musicXML: The MusicXML string to filter
+    ///   - enabledIds: Set of enabled part IDs
+    /// - Returns: Filtered MusicXML string with disabled part content removed
     private func hideDisabledParts(in musicXML: String, enabledIds: Set<String>) -> String {
         var filtered = musicXML
 
@@ -476,7 +534,7 @@ class VerovioService: ObservableObject {
             if !enabledIds.contains(partId) {
                 // Find and remove all notes in this part
                 let partPattern = "(<part id=\"\(partId)\">)(.*?)(</part>)"
-                if let partRegex = try? NSRegularExpression(pattern: partPattern, options: [.dotMatchesLineSeparators]),
+                if let partRegex = getCachedRegex(pattern: partPattern),
                    let match = partRegex.firstMatch(in: filtered, options: [], range: NSRange(location: 0, length: filtered.utf16.count)),
                    match.numberOfRanges >= 4 {
 
@@ -484,13 +542,13 @@ class VerovioService: ObservableObject {
 
                     // Remove all notes
                     let notePattern = "<note(?:(?!</note>).)*</note>"
-                    if let noteRegex = try? NSRegularExpression(pattern: notePattern, options: [.dotMatchesLineSeparators]) {
+                    if let noteRegex = getCachedRegex(pattern: notePattern) {
                         partContent = noteRegex.stringByReplacingMatches(in: partContent, options: [], range: NSRange(location: 0, length: partContent.utf16.count), withTemplate: "")
                     }
 
                     // Remove all directions
                     let directionPattern = "<direction(?:(?!</direction>).)*</direction>"
-                    if let directionRegex = try? NSRegularExpression(pattern: directionPattern, options: [.dotMatchesLineSeparators]) {
+                    if let directionRegex = getCachedRegex(pattern: directionPattern) {
                         partContent = directionRegex.stringByReplacingMatches(in: partContent, options: [], range: NSRange(location: 0, length: partContent.utf16.count), withTemplate: "")
                     }
 
@@ -500,6 +558,28 @@ class VerovioService: ObservableObject {
         }
 
         return filtered
+    }
+
+    // MARK: - Helper Methods
+
+    /// Get or create a cached regex pattern
+    ///
+    /// Regex compilation is expensive, so we cache patterns for reuse.
+    /// All patterns use `.dotMatchesLineSeparators` option to handle multi-line XML elements.
+    ///
+    /// - Parameter pattern: The regex pattern string
+    /// - Returns: Compiled NSRegularExpression, or nil if pattern is invalid
+    private func getCachedRegex(pattern: String) -> NSRegularExpression? {
+        if let cached = regexCache[pattern] {
+            return cached
+        }
+
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators]) else {
+            return nil
+        }
+
+        regexCache[pattern] = regex
+        return regex
     }
 }
 
