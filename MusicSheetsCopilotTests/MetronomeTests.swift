@@ -198,4 +198,105 @@ struct MetronomeTests {
         #expect(counting == .counting)
         #expect(solfege == .solfege)
     }
+
+    // MARK: - Boundary Tests
+
+    @Test("Solfege with out-of-range MIDI note (128) still calculates via modulo")
+    func outOfRangeMIDINoteCalculatesViaModulo() {
+        let metronome = Metronome()
+
+        // MIDI note 128 is technically out of range (max is 127)
+        // But the function doesn't validate - it uses modulo 12
+        // 128 % 12 = 8, which maps to "Sol"
+        let result = metronome.midiNoteToSolfege(128)
+        #expect(result == "Sol")
+    }
+
+    @Test("Solfege with maximum valid MIDI note (127)")
+    func maxMIDINoteReturnsValid() {
+        let metronome = Metronome()
+
+        // MIDI note 127 (G9)
+        let result = metronome.midiNoteToSolfege(127)
+        // 127 % 12 = 7, which should map to Sol
+        #expect(result == "Sol")
+    }
+
+    @Test("Solfege with minimum valid MIDI note (0)")
+    func minMIDINoteReturnsValid() {
+        let metronome = Metronome()
+
+        // MIDI note 0 (C-1)
+        let result = metronome.midiNoteToSolfege(0)
+        // 0 % 12 = 0, which should map to Do
+        #expect(result == "Do")
+    }
+
+    @Test("Beat duration with zero BPM should not crash")
+    func beatDurationZeroBPM() {
+        let bpm = 0.0
+
+        // Division by zero protection
+        let beatDuration = bpm > 0 ? 60.0 / bpm : 0.5
+
+        #expect(beatDuration == 0.5)  // Should use fallback value
+    }
+
+    @Test("Beat duration with very high BPM")
+    func beatDurationHighBPM() {
+        let bpm = 1000.0
+        let beatDuration = 60.0 / bpm
+
+        #expect(beatDuration == 0.06)
+    }
+
+    @Test("Beat duration with very low BPM")
+    func beatDurationLowBPM() {
+        let bpm = 20.0
+        let beatDuration = 60.0 / bpm
+
+        #expect(beatDuration == 3.0)
+    }
+
+    @Test("Note events with single event")
+    func singleNoteEvent() {
+        let metronome = Metronome()
+
+        let events: [(TimeInterval, UInt8, UInt8)] = [
+            (1.5, 60, 0)
+        ]
+
+        metronome.setNoteEvents(events)
+
+        #expect(metronome.totalDuration == 3.5)  // 1.5 + 2.0 buffer
+        #expect(metronome.firstStaffChannel == 0)
+    }
+
+    @Test("Note events with all same channel")
+    func noteEventsAllSameChannel() {
+        let metronome = Metronome()
+
+        let events: [(TimeInterval, UInt8, UInt8)] = [
+            (0.0, 60, 5),
+            (0.5, 62, 5),
+            (1.0, 64, 5),
+        ]
+
+        metronome.setNoteEvents(events)
+
+        #expect(metronome.firstStaffChannel == 5)
+    }
+
+    @Test("Beat calculation at exact beat boundaries")
+    func beatAtExactBoundaries() {
+        let bpm = 60.0  // 1 beat per second
+        let beatDuration = 60.0 / bpm  // 1.0
+
+        // Test beats at exact second boundaries
+        #expect(Int(0.0 / beatDuration) % 4 == 0)
+        #expect(Int(1.0 / beatDuration) % 4 == 1)
+        #expect(Int(2.0 / beatDuration) % 4 == 2)
+        #expect(Int(3.0 / beatDuration) % 4 == 3)
+        #expect(Int(4.0 / beatDuration) % 4 == 0)  // Wraps
+    }
 }

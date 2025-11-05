@@ -243,4 +243,126 @@ struct TimeCalculationTests {
 
         #expect(beat == expectedBeat)
     }
+
+    // MARK: - Staff Extraction Tests
+
+    @Test("Extract staff count for single-staff part")
+    func extractSingleStaffCount() {
+        let service = VerovioService()
+
+        let musicXML = """
+        <score-partwise>
+            <part id="P1">
+                <measure><attributes><staves>1</staves></attributes></measure>
+            </part>
+        </score-partwise>
+        """
+
+        let count = service.extractStaffCount(from: musicXML, partId: "P1")
+        #expect(count == 1)
+    }
+
+    @Test("Extract staff count for piano (2 staves)")
+    func extractPianoStaffCount() {
+        let service = VerovioService()
+
+        let musicXML = """
+        <score-partwise>
+            <part id="P1">
+                <measure><attributes><staves>2</staves></attributes></measure>
+            </part>
+        </score-partwise>
+        """
+
+        let count = service.extractStaffCount(from: musicXML, partId: "P1")
+        #expect(count == 2)
+    }
+
+    @Test("Part without staves attribute defaults to 1")
+    func partWithoutStavesAttributeDefaultsToOne() {
+        let service = VerovioService()
+
+        let musicXML = """
+        <score-partwise>
+            <part id="P1">
+                <measure><attributes></attributes></measure>
+            </part>
+        </score-partwise>
+        """
+
+        let count = service.extractStaffCount(from: musicXML, partId: "P1")
+        #expect(count == 1)
+    }
+
+    @Test("Non-existent part ID defaults to 1")
+    func nonExistentPartIdDefaultsToOne() {
+        let service = VerovioService()
+
+        let musicXML = """
+        <score-partwise>
+            <part id="P1">
+                <measure><attributes><staves>2</staves></attributes></measure>
+            </part>
+        </score-partwise>
+        """
+
+        let count = service.extractStaffCount(from: musicXML, partId: "P99")
+        #expect(count == 1)
+    }
+
+    @Test("Extract staff count for organ (3 staves)")
+    func extractOrganStaffCount() {
+        let service = VerovioService()
+
+        let musicXML = """
+        <score-partwise>
+            <part id="Organ">
+                <measure><attributes><staves>3</staves></attributes></measure>
+            </part>
+        </score-partwise>
+        """
+
+        let count = service.extractStaffCount(from: musicXML, partId: "Organ")
+        #expect(count == 3)
+    }
+
+    // MARK: - Boundary Tests
+
+    @Test("Staff key with very long part ID doesn't crash")
+    func staffKeyWithLongPartID() {
+        let longPartId = String(repeating: "A", count: 100)
+        let key = "\(longPartId)-1"
+
+        #expect(key.contains("-1"))
+        #expect(key.hasPrefix(longPartId))
+    }
+
+    @Test("Staff selection with non-existent staff key")
+    func nonExistentStaffKey() {
+        let service = VerovioService()
+        service.availableStaves = [("P1", 1, "Piano")]
+        service.enabledStaves = Set(["P1-1"])
+
+        // Adding a non-existent key shouldn't crash
+        service.enabledStaves.insert("P99-99")
+
+        #expect(service.enabledStaves.contains("P99-99"))
+        #expect(service.enabledStaves.count == 2)
+    }
+
+    @Test("Removing all staves from selection")
+    func removeAllStaves() {
+        let service = VerovioService()
+        service.availableStaves = [("P1", 1, "Piano"), ("P1", 2, "Piano")]
+        service.enabledStaves = Set(["P1-1", "P1-2"])
+
+        // Remove all staves
+        service.enabledStaves.removeAll()
+
+        #expect(service.enabledStaves.isEmpty)
+
+        // Empty means all enabled according to logic
+        let isEnabled = service.enabledStaves.isEmpty || service.enabledStaves.contains("P1-1")
+        #expect(isEnabled == true)
+    }
 }

@@ -499,7 +499,7 @@ class VerovioService: ObservableObject {
     }
 
     /// Extract the number of staves for a given part
-    private func extractStaffCount(from musicXML: String, partId: String) -> Int {
+    func extractStaffCount(from musicXML: String, partId: String) -> Int {
         // Find the <part id="partId"> section and look for <staves> element
         let partSectionPattern = "<part id=\"\(partId)\">.*?</part>"
         guard let partRegex = try? NSRegularExpression(pattern: partSectionPattern, options: [.dotMatchesLineSeparators]) else {

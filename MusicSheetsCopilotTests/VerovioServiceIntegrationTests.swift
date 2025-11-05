@@ -358,4 +358,161 @@ struct VerovioServiceIntegrationTests {
             }
         }
     }
+
+    // MARK: - Additional Integration Tests
+
+    @Test("Load fur_elise.xml and verify part/staff structure")
+    func furEliseStructure() throws {
+        let service = VerovioService()
+
+        guard let url = Bundle.main.url(forResource: "fur_elise", withExtension: "xml") else {
+            Issue.record("Could not find fur_elise.xml")
+            return
+        }
+
+        let data = try Data(contentsOf: url)
+        _ = try service.renderAllPages(data: data)
+
+        // Should have extracted parts and staves
+        #expect(service.availableParts.count > 0)
+        #expect(service.availableStaves.count > 0)
+
+        // Part IDs should be non-empty
+        for (partId, partName) in service.availableParts {
+            #expect(!partId.isEmpty)
+            #expect(!partName.isEmpty)
+        }
+
+        // Staff keys should be valid format
+        for (partId, staffNumber, staffName) in service.availableStaves {
+            #expect(!partId.isEmpty)
+            #expect(staffNumber > 0)
+            #expect(!staffName.isEmpty)
+        }
+    }
+
+    @Test("Toggling staves persists correctly")
+    func toggleStavesPersistence() {
+        let service = VerovioService()
+
+        service.availableStaves = [
+            ("P1", 1, "Right Hand"),
+            ("P1", 2, "Left Hand")
+        ]
+        service.enabledStaves = Set(["P1-1", "P1-2"])
+
+        #expect(service.enabledStaves.count == 2)
+
+        // Toggle off one staff
+        let staffKey = "P1-1"
+        if service.enabledStaves.contains(staffKey) {
+            service.enabledStaves.remove(staffKey)
+        } else {
+            service.enabledStaves.insert(staffKey)
+        }
+
+        #expect(!service.enabledStaves.contains("P1-1"))
+        #expect(service.enabledStaves.contains("P1-2"))
+        #expect(service.enabledStaves.count == 1)
+
+        // Toggle it back on
+        service.enabledStaves.insert(staffKey)
+        #expect(service.enabledStaves.contains("P1-1"))
+        #expect(service.enabledStaves.count == 2)
+    }
+
+    @Test("Load both demo files successfully")
+    func loadBothDemoFiles() throws {
+        let service = VerovioService()
+
+        // Test twinkle_twinkle.xml
+        guard let twinkleUrl = Bundle.main.url(forResource: "twinkle_twinkle", withExtension: "xml") else {
+            Issue.record("Could not find twinkle_twinkle.xml")
+            return
+        }
+
+        let twinkleData = try Data(contentsOf: twinkleUrl)
+        let twinkleSVG = try service.renderAllPages(data: twinkleData)
+
+        #expect(!twinkleSVG.isEmpty)
+        #expect(service.availableStaves.count > 0)
+
+        // Test fur_elise.xml
+        guard let furEliseUrl = Bundle.main.url(forResource: "fur_elise", withExtension: "xml") else {
+            Issue.record("Could not find fur_elise.xml")
+            return
+        }
+
+        let furEliseData = try Data(contentsOf: furEliseUrl)
+        let furEliseSVG = try service.renderAllPages(data: furEliseData)
+
+        #expect(!furEliseSVG.isEmpty)
+        #expect(service.availableStaves.count > 0)
+    }
+
+    @Test("Staff filtering produces valid XML")
+    func staffFilteringProducesValidXML() throws {
+        let service = VerovioService()
+
+        let musicXML = """
+        <score-partwise>
+            <part-list>
+                <score-part id="P1"><part-name>Piano</part-name></score-part>
+            </part-list>
+            <part id="P1">
+                <measure number="1">
+                    <attributes>
+                        <staves>2</staves>
+                    </attributes>
+                    <note><pitch><step>C</step></pitch><staff>1</staff></note>
+                    <note><pitch><step>E</step></pitch><staff>2</staff></note>
+                </measure>
+            </part>
+        </score-partwise>
+        """
+
+        service.availableStaves = [("P1", 1, "Right"), ("P1", 2, "Left")]
+        service.enabledStaves = Set(["P1-1"])  // Only enable first staff
+
+        let filtered = service.hideDisabledStaves(in: musicXML, enabledStaves: service.enabledStaves)
+
+        // Should still be valid XML structure
+        #expect(filtered.contains("<score-partwise>"))
+        #expect(filtered.contains("</score-partwise>"))
+        #expect(filtered.contains("<part id=\"P1\">"))
+        #expect(filtered.contains("</part>"))
+    }
+
+    @Test("Part filtering preserves part structure")
+    func partFilteringPreservesStructure() throws {
+        let service = VerovioService()
+
+        let musicXML = """
+        <score-partwise>
+            <part-list>
+                <score-part id="P1"><part-name>Piano</part-name></score-part>
+                <score-part id="P2"><part-name>Violin</part-name></score-part>
+            </part-list>
+            <part id="P1">
+                <measure><note><pitch><step>C</step></pitch></note></measure>
+            </part>
+            <part id="P2">
+                <measure><note><pitch><step>G</step></pitch></note></measure>
+            </part>
+        </score-partwise>
+        """
+
+        service.availableParts = [("P1", "Piano"), ("P2", "Violin")]
+        let enabledParts: Set<String> = ["P1"]
+
+        let filtered = service.hideDisabledParts(in: musicXML, enabledIds: enabledParts)
+
+        // Both parts should still exist (structure preserved)
+        #expect(filtered.contains("id=\"P1\""))
+        #expect(filtered.contains("id=\"P2\""))
+
+        // But P2 notes should be removed
+        #expect(filtered.contains("<step>C</step>"))  // P1 note
+        #expect(!filtered.contains("<step>G</step>")) // P2 note removed
+    }
 }

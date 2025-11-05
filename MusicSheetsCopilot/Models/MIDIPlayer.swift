@@ -20,7 +20,7 @@ class MIDIPlayer: ObservableObject {
     // Note events array is internal to allow Metronome to access for metronome-only mode
     // Includes channel information: channel 0 = first staff, channel 1 = second staff, etc.
     var noteEvents: [(time: TimeInterval, midiNote: UInt8, channel: UInt8)] = []
-    private var firstStaffChannel: UInt8 = 0  // Cache the first staff's channel
+    var firstStaffChannel: UInt8 = 0  // Cache the first staff's channel
 
     /// Load MIDI data and prepare for playback
     func loadMIDI(data: Data) throws {
