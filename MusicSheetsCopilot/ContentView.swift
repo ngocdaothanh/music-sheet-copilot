@@ -463,18 +463,27 @@ struct ContentView: View {
             timingData = timing
 
             let midiString = verovioService.getMIDI()
-            if let midiData = Data(base64Encoded: midiString) {
-                try midiPlayer.loadMIDI(data: midiData)
-                let bpm = verovioService.getTempoBPM() ?? 120.0
-                metronome.bpm = bpm
+            if midiString.isEmpty {
+                print("Warning: Verovio returned empty MIDI string")
+            } else if let midiData = Data(base64Encoded: midiString) {
+                do {
+                    try midiPlayer.loadMIDI(data: midiData)
+                    let bpm = verovioService.getTempoBPM() ?? 120.0
+                    metronome.bpm = bpm
 
-                // Load filtered note events for solfege mode (first staff only)
-                if let filteredMidiString = verovioService.getMIDIForFirstStaff() {
-                    if let filteredMidiData = Data(base64Encoded: filteredMidiString) {
-                        midiPlayer.loadNoteEventsFromFilteredMIDI(data: filteredMidiData)
-                        metronome.setNoteEvents(midiPlayer.noteEvents)
+                    // Load filtered note events for solfege mode (first staff only)
+                    if let filteredMidiString = verovioService.getMIDIForFirstStaff() {
+                        if let filteredMidiData = Data(base64Encoded: filteredMidiString) {
+                            midiPlayer.loadNoteEventsFromFilteredMIDI(data: filteredMidiData)
+                            metronome.setNoteEvents(midiPlayer.noteEvents)
+                        }
                     }
+                } catch {
+                    print("Warning: Failed to load MIDI data: \(error.localizedDescription)")
+                    // Continue without MIDI playback
                 }
+            } else {
+                print("Warning: Failed to decode base64 MIDI string (length: \(midiString.count))")
             }
         } catch {
             errorMessage = "Failed to reload score: \(error.localizedDescription)"
@@ -525,19 +534,28 @@ struct ContentView: View {
 
             // Get MIDI data and load into player
             let midiString = verovioService.getMIDI()
-            if let midiData = Data(base64Encoded: midiString) {
-                try midiPlayer.loadMIDI(data: midiData)
-                // Set metronome BPM from VerovioService if available
-                let bpm = verovioService.getTempoBPM() ?? 120.0
-                metronome.bpm = bpm
+            if midiString.isEmpty {
+                print("Warning: Verovio returned empty MIDI string")
+            } else if let midiData = Data(base64Encoded: midiString) {
+                do {
+                    try midiPlayer.loadMIDI(data: midiData)
+                    // Set metronome BPM from VerovioService if available
+                    let bpm = verovioService.getTempoBPM() ?? 120.0
+                    metronome.bpm = bpm
 
-                // Load filtered note events for solfege mode (first staff only)
-                if let filteredMidiString = verovioService.getMIDIForFirstStaff() {
-                    if let filteredMidiData = Data(base64Encoded: filteredMidiString) {
-                        midiPlayer.loadNoteEventsFromFilteredMIDI(data: filteredMidiData)
-                        metronome.setNoteEvents(midiPlayer.noteEvents)
+                    // Load filtered note events for solfege mode (first staff only)
+                    if let filteredMidiString = verovioService.getMIDIForFirstStaff() {
+                        if let filteredMidiData = Data(base64Encoded: filteredMidiString) {
+                            midiPlayer.loadNoteEventsFromFilteredMIDI(data: filteredMidiData)
+                            metronome.setNoteEvents(midiPlayer.noteEvents)
+                        }
                     }
+                } catch {
+                    print("Warning: Failed to load MIDI data: \(error.localizedDescription)")
+                    // Continue without MIDI playback
                 }
+            } else {
+                print("Warning: Failed to decode base64 MIDI string (length: \(midiString.count))")
             }
 
             // Extract title from filename if needed

@@ -26,16 +26,82 @@ class MIDIPlayer: ObservableObject {
     func loadMIDI(data: Data) throws {
         stop()
 
+        // Validate MIDI data before attempting to load
+        guard data.count > 14 else {
+            throw NSError(domain: "MIDIPlayer", code: -1,
+                         userInfo: [NSLocalizedDescriptionKey: "MIDI data is too small (\(data.count) bytes) to be valid"])
+        }
+
+        guard let headerString = String(data: data.subdata(in: 0..<4), encoding: .ascii),
+              headerString == "MThd" else {
+            let headerBytes = data.subdata(in: 0..<min(4, data.count))
+            throw NSError(domain: "MIDIPlayer", code: -2,
+                         userInfo: [NSLocalizedDescriptionKey: "Invalid MIDI file header. Got: \(headerBytes.map { String(format: "%02X", $0) }.joined(separator: " "))"])
+        }
+
+        // Validate header structure
+        guard data.count >= 14 else {
+            throw NSError(domain: "MIDIPlayer", code: -4,
+                         userInfo: [NSLocalizedDescriptionKey: "MIDI data too short for complete header"])
+        }
+
+        // Read header length (should be 6)
+        let headerLength = UInt32(data[4]) << 24 | UInt32(data[5]) << 16 |
+                          UInt32(data[6]) << 8 | UInt32(data[7])
+        guard headerLength == 6 else {
+            throw NSError(domain: "MIDIPlayer", code: -5,
+                         userInfo: [NSLocalizedDescriptionKey: "Invalid MIDI header length: \(headerLength), expected 6"])
+        }
+
+        // Check for at least one track chunk header
+        guard data.count >= 22 else { // 14 (header) + 8 (track chunk header minimum)
+            throw NSError(domain: "MIDIPlayer", code: -6,
+                         userInfo: [NSLocalizedDescriptionKey: "MIDI data too short to contain track data"])
+        }
+
+        // AVMIDIPlayer can crash if the MIDI data is malformed
+        // Try to initialize with error handling
+        // Some versions of AVMIDIPlayer work better with file URLs than raw data
         do {
-            midiPlayer = try AVMIDIPlayer(data: data, soundBankURL: nil)
+            // Try data-based initialization first
+            let player = try AVMIDIPlayer(data: data, soundBankURL: nil)
+            midiPlayer = player
             midiPlayer?.rate = playbackRate
             duration = midiPlayer?.duration ?? 0
             midiData = data
             noteEvents = parseMIDINoteEvents(data: data)
             // Cache the first staff's channel
             firstStaffChannel = noteEvents.map { $0.channel }.min() ?? 0
-        } catch {
-            throw error
+        } catch let error as NSError {
+            print("Failed to initialize AVMIDIPlayer with data: \(error.localizedDescription)")
+            print("Error domain: \(error.domain), code: \(error.code)")
+            print("MIDI data size: \(data.count) bytes")
+            print("First 20 bytes: \(data.prefix(20).map { String(format: "%02X", $0) }.joined(separator: " "))")
+
+            // Try writing to temp file as a fallback
+            do {
+                let tempDir = FileManager.default.temporaryDirectory
+                let tempFile = tempDir.appendingPathComponent("temp_midi_\(UUID().uuidString).mid")
+                try data.write(to: tempFile)
+
+                defer {
+                    try? FileManager.default.removeItem(at: tempFile)
+                }
+
+                let player = try AVMIDIPlayer(contentsOf: tempFile, soundBankURL: nil)
+                midiPlayer = player
+                midiPlayer?.rate = playbackRate
+                duration = midiPlayer?.duration ?? 0
+                midiData = data
+                noteEvents = parseMIDINoteEvents(data: data)
+                firstStaffChannel = noteEvents.map { $0.channel }.min() ?? 0
+
+                print("Successfully loaded MIDI from temp file")
+            } catch {
+                print("Failed to initialize AVMIDIPlayer from file as well: \(error.localizedDescription)")
+                throw NSError(domain: "MIDIPlayer", code: -3,
+                             userInfo: [NSLocalizedDescriptionKey: "AVMIDIPlayer failed: \(error.localizedDescription)"])
+            }
         }
     }
 
@@ -94,11 +160,14 @@ class MIDIPlayer: ObservableObject {
 
     /// Stop playback and reset to beginning
     func stop() {
-        midiPlayer?.stop()
-        midiPlayer?.currentPosition = 0
+        stopTimer()
+
+        guard let player = midiPlayer else { return }
+
+        player.stop()
+        player.currentPosition = 0
         currentTime = 0
         isPlaying = false
-        stopTimer()
     }
 
     /// Toggle play/pause
@@ -139,9 +208,16 @@ class MIDIPlayer: ObservableObject {
     }
 
     private func startTimer() {
+        // Invalidate any existing timer first
+        stopTimer()
+
         updateTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-            guard let self = self, let player = self.midiPlayer else { return }
-            DispatchQueue.main.async {
+            guard let self = self else { return }
+            guard let player = self.midiPlayer else { return }
+
+            // Use weak reference to avoid retain cycles and check if still valid
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
                 self.currentTime = player.currentPosition
             }
         }
@@ -297,6 +373,12 @@ class MIDIPlayer: ObservableObject {
     }
 
     deinit {
-        stop()
+        // Stop the timer first to prevent any callbacks during deallocation
+        updateTimer?.invalidate()
+        updateTimer = nil
+
+        // Stop the MIDI player
+        midiPlayer?.stop()
+        midiPlayer = nil
     }
 }

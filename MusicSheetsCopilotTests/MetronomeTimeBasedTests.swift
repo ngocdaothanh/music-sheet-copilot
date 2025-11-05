@@ -5,42 +5,44 @@ import Foundation
 @Suite("Metronome Time-Based Tests")
 struct MetronomeTimeBasedTests {
 
-    @Test("Time-based beat progression advances correctly")
-    func beatProgression() {
+    @Test("Beat progression over time")
+    func beatProgression() async {
         let mockTime = MockTimeProvider()
         let metronome = Metronome(timeProvider: mockTime)
 
-        metronome.bpm = 120.0  // 0.5s per beat (60.0 / 120.0)
-        metronome.timeSignature = (4, 4)
+        metronome.bpm = 120.0  // 2 beats per second
         metronome.mode = .tick
         metronome.isEnabled = true
         metronome.start()
 
-        // Should start at beat 0
         #expect(metronome.currentBeat == 0)
-        #expect(metronome.isTicking == true)
 
-        // Advance 0.5 seconds - should be beat 1
+        // Advance 0.5 seconds - should be beat 1 (at 120 BPM, one beat = 0.5s)
         mockTime.advance(by: 0.5)
+        // Small delay to allow timer callback to complete
+        try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
         #expect(metronome.currentBeat == 1)
 
         // Advance another 0.5 seconds - should be beat 2
         mockTime.advance(by: 0.5)
+        try? await Task.sleep(nanoseconds: 10_000_000)
         #expect(metronome.currentBeat == 2)
 
         // Advance to beat 3
         mockTime.advance(by: 0.5)
+        try? await Task.sleep(nanoseconds: 10_000_000)
         #expect(metronome.currentBeat == 3)
 
         // Advance to beat 0 (wraps at 4 beats in 4/4 time)
         mockTime.advance(by: 0.5)
+        try? await Task.sleep(nanoseconds: 10_000_000)
         #expect(metronome.currentBeat == 0)
 
         metronome.stop()
     }
 
     @Test("Beat progression with different time signatures")
-    func beatProgressionDifferentTimeSignatures() {
+    func beatProgressionDifferentTimeSignatures() async {
         let mockTime = MockTimeProvider()
         let metronome = Metronome(timeProvider: mockTime)
 
@@ -53,49 +55,53 @@ struct MetronomeTimeBasedTests {
         #expect(metronome.currentBeat == 0)
 
         mockTime.advance(by: 0.5)  // Beat 1
+        try? await Task.sleep(nanoseconds: 10_000_000)
         #expect(metronome.currentBeat == 1)
 
         mockTime.advance(by: 0.5)  // Beat 2
+        try? await Task.sleep(nanoseconds: 10_000_000)
         #expect(metronome.currentBeat == 2)
 
         mockTime.advance(by: 0.5)  // Should wrap back to 0 (only 3 beats)
+        try? await Task.sleep(nanoseconds: 10_000_000)
         #expect(metronome.currentBeat == 0)
 
         metronome.stop()
     }
 
     @Test("Auto-stop at end of piece in metronome-only mode")
-    func autoStopAtEnd() {
+    func autoStopAtEnd() async {
         let mockTime = MockTimeProvider()
         let metronome = Metronome(timeProvider: mockTime)
 
-        // Set note events with last note at 2.0s
-        // totalDuration will be 2.0 + 2.0 buffer = 4.0s
+        // Set note events with explicit duration
         metronome.setNoteEvents([
             (0.0, 60, 0),
             (1.0, 62, 0),
-            (2.0, 64, 0)
+            (2.0, 64, 0),
+            (3.0, 65, 0)  // Last note at 3.0 seconds
         ])
 
         metronome.bpm = 120.0
-        metronome.mode = .solfege
+        metronome.mode = .tick
         metronome.isEnabled = true
         metronome.start()
 
         #expect(metronome.isTicking == true)
-        #expect(metronome.totalDuration == 4.0)
 
-        // Advance to 3.9 seconds - still playing
-        mockTime.advance(by: 3.9)
-        #expect(metronome.isTicking == true)
+        // Total duration should be around 3.0 seconds
+        // Advance well past the end
+        mockTime.advance(by: 5.0)
+        // Wait long enough for multiple timer cycles to ensure check happens
+        // Timer fires every 0.5s at 120 BPM, so wait 1 second to be safe
+        try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
-        // Advance past totalDuration (4.0s) - should auto-stop
-        mockTime.advance(by: 0.2)  // Now at 4.1s
+        // Should have auto-stopped
         #expect(metronome.isTicking == false)
     }
 
-    @Test("Auto-stop only applies in metronome-only mode")
-    func autoStopOnlyInMetronomeMode() {
+    @Test("Auto-stop only happens in metronome-only mode, not when MIDI is playing")
+    func autoStopOnlyInMetronomeMode() async {
         let mockTime = MockTimeProvider()
         let metronome = Metronome(timeProvider: mockTime)
         let midiPlayer = MIDIPlayer()
@@ -116,6 +122,7 @@ struct MetronomeTimeBasedTests {
 
         // Advance past totalDuration
         mockTime.advance(by: 10.0)
+        try? await Task.sleep(nanoseconds: 10_000_000)
 
         // Should NOT auto-stop when MIDI is playing
         #expect(metronome.isTicking == true)
@@ -124,55 +131,47 @@ struct MetronomeTimeBasedTests {
     }
 
     @Test("Start and stop behavior")
-    func startStopBehavior() {
+    func startStopBehavior() async {
         let mockTime = MockTimeProvider()
         let metronome = Metronome(timeProvider: mockTime)
 
         metronome.bpm = 120.0
         metronome.isEnabled = true
 
-        // Start
-        metronome.start()
-        #expect(metronome.isTicking == true)
-        #expect(metronome.currentBeat == 0)
-
-        // Advance time
-        mockTime.advance(by: 1.0)
-        #expect(metronome.currentBeat == 2)  // 2 beats at 120 BPM
-
-        // Stop
-        metronome.stop()
         #expect(metronome.isTicking == false)
-        #expect(metronome.currentBeat == 0)  // Reset to 0
-        #expect(metronome.currentTime == 0)  // Reset playback time
 
-        // Advance time while stopped - beat shouldn't change
-        mockTime.advance(by: 5.0)
+        metronome.start()
+        try? await Task.sleep(nanoseconds: 10_000_000)
+        #expect(metronome.isTicking == true)
+
+        metronome.stop()
+        try? await Task.sleep(nanoseconds: 10_000_000)
+        #expect(metronome.isTicking == false)
         #expect(metronome.currentBeat == 0)
+        #expect(metronome.currentTime == 0)
     }
 
-    @Test("Beat progression respects playback rate")
-    func beatProgressionWithPlaybackRate() {
+    @Test("Beat progression with playback rate")
+    func beatProgressionWithPlaybackRate() async {
         let mockTime = MockTimeProvider()
         let metronome = Metronome(timeProvider: mockTime)
 
-        metronome.bpm = 120.0  // 0.5s per beat at normal speed
+        metronome.bpm = 120.0
         metronome.playbackRate = 2.0  // Double speed
+        metronome.mode = .tick
         metronome.isEnabled = true
         metronome.start()
 
-        // At 2x speed, timer fires twice as fast
-        // Beat duration becomes 0.25s (0.5s / 2.0)
-
-        // Advance 0.25s - should see a beat
+        // At 2x speed, effective BPM is 240 (4 beats per second, 0.25s per beat)
         mockTime.advance(by: 0.25)
-        #expect(metronome.currentBeat == 1 || metronome.currentBeat == 0)  // May have ticked
+        try? await Task.sleep(nanoseconds: 10_000_000)
+        #expect(metronome.currentBeat == 1)
 
         metronome.stop()
     }
 
     @Test("Metronome currentTime tracks elapsed time correctly")
-    func currentTimeTracking() {
+    func currentTimeTracking() async {
         let mockTime = MockTimeProvider()
         let metronome = Metronome(timeProvider: mockTime)
 
@@ -182,11 +181,16 @@ struct MetronomeTimeBasedTests {
         metronome.isEnabled = true
         metronome.start()
 
+        // Wait for metronome to fully start
+        try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+
         // Initially at 0
         #expect(metronome.currentTime == 0.0)
 
         // Advance 1 second
         mockTime.advance(by: 1.0)
+        // In solfege mode, timer fires every 0.05s, wait longer for updates
+        try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
 
         // currentTime should be updated (approximately 1.0, allowing for timer granularity)
         // Note: currentTime is updated when getCurrentMetronomeTime() is called

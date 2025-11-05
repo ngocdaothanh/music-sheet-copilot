@@ -186,8 +186,12 @@ class Metronome: ObservableObject {
         lastSpokenNotes = []
         metronomeStartTime = nil
         metronomePausedTime = 0
-        if speechSynthesizer.isSpeaking {
-            speechSynthesizer.stopSpeaking(at: .immediate)
+        // Stop speech synthesis on main queue to avoid priority inversion
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if self.speechSynthesizer.isSpeaking {
+                self.speechSynthesizer.stopSpeaking(at: .immediate)
+            }
         }
     }
 
