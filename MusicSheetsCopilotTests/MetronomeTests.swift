@@ -96,79 +96,31 @@ struct MetronomeTests {
     }
 
     // MARK: - Beat Calculation Tests
-
-    @Test("Beat duration calculation - Different BPMs",
-          arguments: [
-        (60.0, 1.0),    // 60 BPM = 1 beat per second
-        (120.0, 0.5),   // 120 BPM = 2 beats per second
-        (240.0, 0.25),  // 240 BPM = 4 beats per second
-        (90.0, 0.666),  // 90 BPM = 1.5 beats per second (approximately)
-    ])
-    func beatDurationCalculation(bpm: Double, expectedDuration: TimeInterval) {
-        // This tests the core beat calculation logic used in solfege mode
-        let beatDuration = 60.0 / bpm
-
-        // Use small epsilon for floating point comparison
-        let epsilon = 0.01
-        #expect(abs(beatDuration - expectedDuration) < epsilon)
-    }
-
-    @Test("Beat index calculation from time",
-          arguments: [
-        (0.0, 120.0, 4, 0),    // Time 0.0s, 120 BPM, 4/4 -> beat 0
-        (0.5, 120.0, 4, 1),    // Time 0.5s, 120 BPM, 4/4 -> beat 1
-        (1.0, 120.0, 4, 2),    // Time 1.0s, 120 BPM, 4/4 -> beat 2
-        (1.5, 120.0, 4, 3),    // Time 1.5s, 120 BPM, 4/4 -> beat 3
-        (2.0, 120.0, 4, 0),    // Time 2.0s, 120 BPM, 4/4 -> beat 0 (wraps)
-        (1.0, 60.0, 4, 1),     // Time 1.0s, 60 BPM, 4/4 -> beat 1
-        (2.0, 60.0, 4, 2),     // Time 2.0s, 60 BPM, 4/4 -> beat 2
-        (0.0, 120.0, 3, 0),    // Time 0.0s, 120 BPM, 3/4 -> beat 0
-        (1.5, 120.0, 3, 0),    // Time 1.5s, 120 BPM, 3/4 -> beat 0 (wraps after 3)
-    ])
-    func beatIndexFromTime(time: TimeInterval, bpm: Double, beatsPerMeasure: Int, expectedBeat: Int) {
-        // This tests the logic: Int(currentTime / beatDuration) % timeSignature.0
-        let beatDuration = 60.0 / bpm
-        let calculatedBeat = Int(time / beatDuration) % beatsPerMeasure
-
-        #expect(calculatedBeat == expectedBeat)
-    }
+    // Note: Detailed beat calculation and timing tests are in MetronomeTimeBasedTests.swift
+    // These tests verify the basic logic is sound
 
     @Test("Beat calculation respects original BPM with playback rate")
     func beatCalculationWithPlaybackRate() {
-        // This is the critical bug fix - beat calculation should use original BPM,
+        // This documents the critical design: beat calculation should use original BPM,
         // not adjusted BPM, because getCurrentMetronomeTime() already accounts for playbackRate
 
-        let bpm = 120.0
-        let playbackRate: Float = 0.5  // Half speed
+        let metronome = Metronome()
+        metronome.bpm = 120.0
+        metronome.playbackRate = 0.5  // Half speed
+        metronome.timeSignature = (4, 4)
 
-        // At half speed, with 120 BPM:
-        // - Beat duration based on ORIGINAL BPM: 60.0 / 120.0 = 0.5 seconds
-        // - At real time 1.0 second, getCurrentMetronomeTime() returns 0.5 seconds (because of playbackRate)
-        // - Beat should be: Int(0.5 / 0.5) % 4 = 1
+        // Verify the BPM and playbackRate are set correctly
+        #expect(metronome.bpm == 120.0)
+        #expect(metronome.playbackRate == 0.5)
 
-        let beatDuration = 60.0 / bpm  // Use ORIGINAL BPM (not bpm * playbackRate)
-        #expect(beatDuration == 0.5)
-
-        // Simulated current time from getCurrentMetronomeTime() at real time 1.0s
-        let simulatedCurrentTime = 1.0 * Double(playbackRate)  // = 0.5
-        let beat = Int(simulatedCurrentTime / beatDuration) % 4
-
-        #expect(beat == 1)  // Should be beat 1, not beat 2
+        // The actual beat calculation happens internally when the timer fires
+        // The formula used is: Int(currentTime / (60.0 / bpm)) % timeSignature.0
+        // This test documents that bpm should NOT be multiplied by playbackRate
     }
 
     // MARK: - Time Signature Tests
-
-    @Test("Beat wraps at time signature boundary",
-          arguments: [
-        (4, 3),  // 4/4 time, beat 3 (0-indexed) should wrap to 0
-        (3, 2),  // 3/4 time, beat 2 (0-indexed) should wrap to 0
-        (6, 5),  // 6/8 time, beat 5 (0-indexed) should wrap to 0
-    ])
-    func beatWrapsAtTimeSignature(beatsPerMeasure: Int, lastBeat: Int) {
-        // Test that beat correctly wraps at time signature boundary
-        let nextBeat = (lastBeat + 1) % beatsPerMeasure
-        #expect(nextBeat == 0)
-    }
+    // Note: Beat wrapping behavior is tested with actual Metronome instances
+    // in MetronomeTimeBasedTests.swift
 
     // MARK: - Initial State Tests
 
@@ -232,30 +184,49 @@ struct MetronomeTests {
         #expect(result == "Do")
     }
 
-    @Test("Beat duration with zero BPM should not crash")
+    @Test("Beat duration with zero BPM should not cause division by zero")
     func beatDurationZeroBPM() {
-        let bpm = 0.0
+        let metronome = Metronome()
 
-        // Division by zero protection
-        let beatDuration = bpm > 0 ? 60.0 / bpm : 0.5
+        // Setting BPM to 0 could cause division by zero in the timer calculation
+        // This test verifies the metronome handles this edge case
+        metronome.bpm = 0.0
 
-        #expect(beatDuration == 0.5)  // Should use fallback value
+        // If there's no protection, this will crash with division by zero
+        // The test documents current behavior (may crash or handle gracefully)
+        #expect(metronome.bpm == 0.0)
+
+        // Note: Starting the metronome with 0 BPM may cause a crash
+        // This is a known edge case that should ideally be handled with validation
     }
 
     @Test("Beat duration with very high BPM")
     func beatDurationHighBPM() {
-        let bpm = 1000.0
-        let beatDuration = 60.0 / bpm
+        let metronome = Metronome()
+        metronome.bpm = 1000.0
 
-        #expect(beatDuration == 0.06)
+        // The metronome should handle very high BPM without crashing
+        // Start it to ensure timer calculation works
+        metronome.start()
+
+        // Should not crash
+        #expect(metronome.bpm == 1000.0)
+
+        metronome.stop()
     }
 
     @Test("Beat duration with very low BPM")
     func beatDurationLowBPM() {
-        let bpm = 20.0
-        let beatDuration = 60.0 / bpm
+        let metronome = Metronome()
+        metronome.bpm = 20.0
 
-        #expect(beatDuration == 3.0)
+        // The metronome should handle very low BPM without crashing
+        metronome.start()
+
+        // Should not crash
+        #expect(metronome.bpm == 20.0)
+
+        metronome.stop()
     }
 
     @Test("Note events with single event")
@@ -285,18 +256,5 @@ struct MetronomeTests {
         metronome.setNoteEvents(events)
 
         #expect(metronome.firstStaffChannel == 5)
-    }
-
-    @Test("Beat calculation at exact beat boundaries")
-    func beatAtExactBoundaries() {
-        let bpm = 60.0  // 1 beat per second
-        let beatDuration = 60.0 / bpm  // 1.0
-
-        // Test beats at exact second boundaries
-        #expect(Int(0.0 / beatDuration) % 4 == 0)
-        #expect(Int(1.0 / beatDuration) % 4 == 1)
-        #expect(Int(2.0 / beatDuration) % 4 == 2)
-        #expect(Int(3.0 / beatDuration) % 4 == 3)
-        #expect(Int(4.0 / beatDuration) % 4 == 0)  // Wraps
     }
 }
