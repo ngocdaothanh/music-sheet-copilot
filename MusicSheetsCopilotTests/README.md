@@ -41,44 +41,6 @@ This directory contains automated tests for the MusicSheetsCopilot app using **S
 xcodebuild test -scheme MusicSheetsCopilot -destination 'platform=macOS'
 ```
 
-## Test Coverage
-
-### ✅ Currently Tested (70+ tests)
-
-**MetronomeTests.swift (18 tests):**
-- ✅ `midiNoteToSolfege()` - All note conversions including sharps/flats and octaves
-- ✅ `setNoteEvents()` - Duration calculation and channel caching
-- ✅ Beat calculation logic - Different BPMs and time signatures
-- ✅ **Critical bug fix verification** - Beat calculation with playback rate
-- ✅ Initial state validation
-- ✅ Mode enum existence
-
-**VerovioServiceTests.swift (15 tests):**
-- ✅ Staff key formatting and validation
-- ✅ Enabled staves filtering logic
-- ✅ Part ID extraction from staff keys
-- ✅ MIDI channel extraction from status bytes
-- ✅ Staff name formatting and uniqueness detection
-
-**VerovioServiceIntegrationTests.swift (10 tests):**
-- ✅ `hideDisabledStaves()` - Staff element removal from MusicXML
-- ✅ `hideDisabledParts()` - Part element removal from MusicXML
-- ✅ Load twinkle_twinkle.xml - Staff detection and MIDI generation
-- ✅ `getMIDIForFirstStaff()` - First staff filtering verification
-- ✅ Enabled staves initialization on file load
-- ✅ Staff selection toggling
-- ✅ Staff name uniqueness (catches duplicate name bugs)
-
-**MIDIPlayerTests.swift (29 tests):**
-- ✅ MIDI channel extraction from status bytes (all channels)
-- ✅ Note On/Off message type detection
-- ✅ Note event structure and sorting
-- ✅ Note event filtering by channel and time
-- ✅ Find notes at time with tolerance
-- ✅ MIDI note number validation
-- ✅ First staff channel detection
-- ✅ Base64 encoding/decoding for MIDI data
-
 ### 📋 Future Tests (Optional)
 
 **Metronome.swift (requires mocking):**
@@ -90,55 +52,6 @@ xcodebuild test -scheme MusicSheetsCopilot -destination 'platform=macOS'
 - ⏳ Full MIDI parsing from base64 with fixture files
 - ⏳ Complete note event extraction with real data
 
-**Integration Tests:**
-
-## Test Results Interpretation
-
-### Green Diamond ✅
-Test passed! The code behaves as expected.
-
-### Red Diamond ❌
-Test failed. Click on the test to see:
-- **Expected value** (what should happen)
-- **Actual value** (what actually happened)
-- **File and line number** where the assertion failed
-
-### Example Output
-```
-Test "Beat calculation respects original BPM with playback rate" passed
-✅ Expected: 1
-✅ Actual: 1
-```
-
-## Writing New Tests
-
-### Basic Test Structure
-```swift
-@Test("Description of what you're testing")
-func testName() {
-    // Arrange - Set up test data
-    let metronome = Metronome()
-
-    // Act - Perform the action
-    let result = metronome.midiNoteToSolfege(60)
-
-    // Assert - Verify the result
-    #expect(result == "Do")
-}
-```
-
-### Parameterized Tests (Test Multiple Cases)
-```swift
-@Test("Test name", arguments: [
-    (input1, expected1),
-    (input2, expected2),
-])
-func testWithParameters(input: Int, expected: String) {
-    let result = someFunction(input)
-    #expect(result == expected)
-}
-```
-
 ## Tips
 
 1. **Run tests frequently** - After every code change
@@ -146,13 +59,6 @@ func testWithParameters(input: Int, expected: String) {
 3. **Test one thing** - Each test should verify one specific behavior
 4. **Use descriptive names** - Test names should explain what they verify
 5. **Fix failing tests immediately** - Don't let them accumulate
-
-## Next Steps
-
-1. **Add tests for VerovioService** - Test XML parsing and filtering
-2. **Add integration tests** - Test file loading end-to-end
-3. **Add TimeProvider protocol** - Enable time-based testing
-4. **Set up CI/CD** - Run tests automatically on every commit
 
 ## Resources
 
