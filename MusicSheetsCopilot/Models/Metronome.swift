@@ -25,7 +25,7 @@ class Metronome: ObservableObject {
     private var timer: TimerProtocol?  // Changed from Timer? to TimerProtocol?
     private var tickCount: Int = 0
     private var speechSynthesizer = AVSpeechSynthesizer()
-    
+
     // Dependency injection for time provider (defaults to system time)
     private let timeProvider: TimeProvider
 
@@ -41,7 +41,7 @@ class Metronome: ObservableObject {
     var firstStaffChannel: UInt8 = 0  // Cache the first staff's channel (internal for testing)
     var totalDuration: TimeInterval = 0  // Total duration based on last note event (internal for testing)
     private var lastBeatTime: TimeInterval = 0  // Track when we last advanced the beat (for solfege mode)
-    
+
     // Initializer with dependency injection (defaults to system time provider)
     init(timeProvider: TimeProvider = SystemTimeProvider()) {
         self.timeProvider = timeProvider

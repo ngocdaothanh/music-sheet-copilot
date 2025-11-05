@@ -5,7 +5,7 @@ import Foundation
 protocol TimeProvider {
     /// Get the current time
     func now() -> Date
-    
+
     /// Schedule a repeating or one-shot timer
     /// - Parameters:
     ///   - interval: Time interval between timer fires
@@ -27,7 +27,7 @@ class SystemTimeProvider: TimeProvider {
     func now() -> Date {
         return Date()
     }
-    
+
     func scheduleTimer(interval: TimeInterval, repeats: Bool, block: @escaping () -> Void) -> TimerProtocol {
         let timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: repeats) { _ in
             block()
@@ -39,11 +39,11 @@ class SystemTimeProvider: TimeProvider {
 /// Wrapper around Foundation.Timer to conform to TimerProtocol
 private class SystemTimer: TimerProtocol {
     private let timer: Timer
-    
+
     init(timer: Timer) {
         self.timer = timer
     }
-    
+
     func invalidate() {
         timer.invalidate()
     }
