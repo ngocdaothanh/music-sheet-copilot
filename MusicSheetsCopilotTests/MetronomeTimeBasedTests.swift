@@ -184,8 +184,9 @@ struct MetronomeTimeBasedTests {
         // Wait for metronome to fully start
         try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
 
-        // Initially at 0
-        #expect(metronome.currentTime == 0.0)
+        // Access currentTime on MainActor to avoid priority inversion
+        let initialTime = await MainActor.run { metronome.currentTime }
+        #expect(initialTime == 0.0)
 
         // Advance 1 second
         mockTime.advance(by: 1.0)
@@ -194,7 +195,7 @@ struct MetronomeTimeBasedTests {
 
         // currentTime should be updated (approximately 1.0, allowing for timer granularity)
         // Note: currentTime is updated when getCurrentMetronomeTime() is called
-        let timeAfter1s = metronome.currentTime
+        let timeAfter1s = await MainActor.run { metronome.currentTime }
         #expect(timeAfter1s >= 0.9 && timeAfter1s <= 1.1)
 
         metronome.stop()
