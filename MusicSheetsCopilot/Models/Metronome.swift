@@ -107,7 +107,10 @@ class Metronome: ObservableObject {
         }
         let wavHeader = Metronome.wavHeader(sampleCount: samples, sampleRate: Int(sampleRate))
         var data = Data(wavHeader)
-        data.append(Data(buffer: UnsafeBufferPointer(start: &buffer, count: samples)))
+        // Use withUnsafeBufferPointer to avoid dangling pointer
+        buffer.withUnsafeBufferPointer { bufferPointer in
+            data.append(Data(buffer: bufferPointer))
+        }
         return data
     }
 

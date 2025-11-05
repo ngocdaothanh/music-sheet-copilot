@@ -133,7 +133,7 @@ class VerovioService: ObservableObject {
         // Set the resource path if we found it
         if let resourcePath = foundResourcePath {
             self.resourcePath = resourcePath
-            toolkit.setResourcePath(resourcePath)
+            _ = toolkit.setResourcePath(resourcePath)
         }
     }
 
@@ -144,7 +144,7 @@ class VerovioService: ObservableObject {
     /// - Returns: SVG string representation
     func renderMusicXML(data: Data, options: RenderOptions = RenderOptions()) throws -> String {
         // Set options
-        toolkit.setOptions(options.jsonString)
+        _ = toolkit.setOptions(options.jsonString)
 
         // Convert data to string
         guard let musicXMLString = String(data: data, encoding: .utf8) else {
@@ -215,7 +215,7 @@ class VerovioService: ObservableObject {
         }
 
         // Set options
-        toolkit.setOptions(options.jsonString)
+        _ = toolkit.setOptions(options.jsonString)
 
         // Store for tempo extraction
         lastLoadedMusicXML = musicXMLString
@@ -307,10 +307,10 @@ class VerovioService: ObservableObject {
 
         // Set the resource path so fonts are available
         if let resourcePath = self.resourcePath {
-            tempToolkit.setResourcePath(resourcePath)
+            _ = tempToolkit.setResourcePath(resourcePath)
         }
 
-        tempToolkit.loadData(filteredXML)
+        _ = tempToolkit.loadData(filteredXML)
 
         return tempToolkit.renderToMIDI()
     }

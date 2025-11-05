@@ -106,25 +106,25 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .openDocument)) { _ in
             isImporting = true
         }
-        .onChange(of: midiPlayer.isPlaying) { isPlaying in
+        .onChange(of: midiPlayer.isPlaying) { oldValue, newValue in
             // Stop metronome when MIDI playback stops (e.g., when song finishes)
-            if !isPlaying && metronome.isTicking && playbackMode == .midiWithMetronome {
+            if !newValue && metronome.isTicking && playbackMode == .midiWithMetronome {
                 metronome.stop()
             }
         }
-        .onChange(of: isMetronomeOnlyPlaying) { isPlaying in
+        .onChange(of: isMetronomeOnlyPlaying) { oldValue, newValue in
             // When metronome-only mode stops, stop the metronome
-            if !isPlaying && metronome.isTicking {
+            if !newValue && metronome.isTicking {
                 metronome.stop()
             }
         }
-        .onChange(of: metronome.isTicking) { isTicking in
+        .onChange(of: metronome.isTicking) { oldValue, newValue in
             // Sync metronome ticking state with isMetronomeOnlyPlaying in metronome-only mode
             if playbackMode == .metronomeOnly {
-                isMetronomeOnlyPlaying = isTicking
+                isMetronomeOnlyPlaying = newValue
             }
         }
-        .onChange(of: playbackMode) { newMode in
+        .onChange(of: playbackMode) { oldValue, newValue in
             // Stop any current playback when switching modes
             if midiPlayer.isPlaying {
                 midiPlayer.stop()
@@ -204,8 +204,8 @@ struct ContentView: View {
                         }
                         .toggleStyle(.button)
                         .help(metronome.isEnabled ? "Disable Metronome" : "Enable Metronome")
-                        .onChange(of: metronome.isEnabled) { enabled in
-                            if enabled && midiPlayer.isPlaying {
+                        .onChange(of: metronome.isEnabled) { oldValue, newValue in
+                            if newValue && midiPlayer.isPlaying {
                                 let bpm = verovioService.getTempoBPM() ?? 120.0
                                 metronome.bpm = bpm
                                 metronome.start()
@@ -606,7 +606,7 @@ struct TempoSliderView: View {
                         onRateChange(newRate)
                     }
                 }
-                .onChange(of: localRate) { newValue in
+                .onChange(of: localRate) { oldValue, newValue in
                     // Update in real-time while dragging
                     let newRate = Float(newValue)
                     playbackRate = newRate
