@@ -26,6 +26,11 @@ class MIDIPlayer: ObservableObject {
     func loadMIDI(data: Data) throws {
         stop()
 
+        // Configure audio session for iOS
+        #if os(iOS)
+        configureAudioSession()
+        #endif
+
         // Validate MIDI data before attempting to load
         guard data.count > 14 else {
             throw NSError(domain: "MIDIPlayer", code: -1,
@@ -360,6 +365,19 @@ class MIDIPlayer: ObservableObject {
 
         return events.sorted(by: { $0.0 < $1.0 })
     }
+
+    /// Configure audio session for iOS
+    #if os(iOS)
+    private func configureAudioSession() {
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(.playback, mode: .default, options: [])
+            try audioSession.setActive(true)
+        } catch {
+            print("Failed to configure audio session: \(error.localizedDescription)")
+        }
+    }
+    #endif
 
     /// Get notes playing at or near a specific time (within 100ms window)
     /// Note events are already filtered to first staff via loadNoteEventsFromFilteredMIDI

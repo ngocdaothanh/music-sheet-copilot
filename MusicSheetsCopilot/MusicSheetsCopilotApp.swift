@@ -4,7 +4,13 @@ import SwiftUI
 struct MusicSheetsCopilotApp: App {
     var body: some Scene {
         WindowGroup {
+            #if os(iOS)
+            NavigationStack {
+                ContentView()
+            }
+            #else
             ContentView()
+            #endif
         }
         #if os(macOS)
         .commands {

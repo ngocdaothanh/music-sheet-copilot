@@ -138,6 +138,12 @@ class Metronome: ObservableObject {
 
     func start() {
         guard isEnabled else { return }
+
+        // Configure audio session for iOS
+        #if os(iOS)
+        configureAudioSession()
+        #endif
+
         isTicking = true
         tickCount = 0
         currentBeat = 0  // Reset visual beat indicator
@@ -412,4 +418,17 @@ class Metronome: ObservableObject {
 
         speechSynthesizer.speak(utterance)
     }
+
+    /// Configure audio session for iOS
+    #if os(iOS)
+    private func configureAudioSession() {
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(.playback, mode: .default, options: [])
+            try audioSession.setActive(true)
+        } catch {
+            print("Failed to configure audio session: \(error.localizedDescription)")
+        }
+    }
+    #endif
 }
