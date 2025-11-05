@@ -10,6 +10,7 @@
 		7306849D2EBA1C7B001BCE5B /* fur_elise.xml in Resources */ = {isa = PBXBuildFile; fileRef = 7306849C2EBA1C7B001BCE5B /* fur_elise.xml */; };
 		7306849F2EBA32FC001BCE5B /* MetronomeVisualView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7306849E2EBA32FC001BCE5B /* MetronomeVisualView.swift */; };
 		737158F62EBB941000645726 /* TimeProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 737158F52EBB941000645726 /* TimeProvider.swift */; };
+		73716DB92EBBB43A00645726 /* verovio-data in Resources */ = {isa = PBXBuildFile; fileRef = 73716DB82EBBB43A00645726 /* verovio-data */; };
 		73AD151C2EB9A8F400478D55 /* MultiPageSVGMusicSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73AD151B2EB9A8F400478D55 /* MultiPageSVGMusicSheetView.swift */; };
 		73AD151E2EB9B16A00478D55 /* MIDIPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73AD151D2EB9B16A00478D55 /* MIDIPlayer.swift */; };
 		73AD151F2EB9C00000478D55 /* MXLDecompressor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73AD15202EB9C00000478D55 /* MXLDecompressor.swift */; };
@@ -37,6 +38,7 @@
 		7306849E2EBA32FC001BCE5B /* MetronomeVisualView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetronomeVisualView.swift; sourceTree = "<group>"; };
 		737158D72EBB87AF00645726 /* MusicSheetsCopilotTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MusicSheetsCopilotTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		737158F52EBB941000645726 /* TimeProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeProvider.swift; sourceTree = "<group>"; };
+		73716DB82EBBB43A00645726 /* verovio-data */ = {isa = PBXFileReference; lastKnownFileType = text; path = "verovio-data"; sourceTree = "<group>"; };
 		73AD151B2EB9A8F400478D55 /* MultiPageSVGMusicSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiPageSVGMusicSheetView.swift; sourceTree = "<group>"; };
 		73AD151D2EB9B16A00478D55 /* MIDIPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MIDIPlayer.swift; sourceTree = "<group>"; };
 		73AD151F2EB9BF3D00478D55 /* Metronome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Metronome.swift; sourceTree = "<group>"; };
@@ -129,6 +131,7 @@
 		E1A023 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				73716DB82EBBB43A00645726 /* verovio-data */,
 				7306849C2EBA1C7B001BCE5B /* fur_elise.xml */,
 				E1A014 /* twinkle_twinkle.xml */,
 			);
@@ -235,6 +238,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E1A005 /* Assets.xcassets in Resources */,
+				73716DB92EBBB43A00645726 /* verovio-data in Resources */,
 				7306849D2EBA1C7B001BCE5B /* fur_elise.xml in Resources */,
 				E1A013 /* twinkle_twinkle.xml in Resources */,
 			);

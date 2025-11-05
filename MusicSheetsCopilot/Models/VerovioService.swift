@@ -70,72 +70,19 @@ class VerovioService: ObservableObject {
     }
 
     init() {
-        // Initialize the toolkit first
         toolkit = VerovioToolkit()
 
-
-        // Try to find the actual Verovio data resources from the Swift package
-        var foundResourcePath: String?
-
-        // Method 1: Check main bundle
-        if let resourcePath = Bundle.main.path(forResource: "data", ofType: nil) {
-            foundResourcePath = resourcePath
-        }
-
-        // Method 2: Try to get the VerovioToolkit module bundle
-        else if let frameworkBundle = Bundle(identifier: "org.rismch.verovio.VerovioToolkit") {
-            if let resourcePath = frameworkBundle.path(forResource: "data", ofType: nil) {
-                foundResourcePath = resourcePath
-            } else if let resourcePath = frameworkBundle.resourcePath {
-                let dataPath = (resourcePath as NSString).appendingPathComponent("data")
-                if FileManager.default.fileExists(atPath: dataPath) {
-                    foundResourcePath = dataPath
-                }
-            }
-        }
-
-        // Method 3: Search all loaded bundles
-        if foundResourcePath == nil {
-            for bundle in Bundle.allBundles {
-                if let resourcePath = bundle.path(forResource: "data", ofType: nil),
-                   FileManager.default.fileExists(atPath: resourcePath) {
-                    // Check if this looks like Verovio data (should have Bravura font)
-                    let bravuraPath = (resourcePath as NSString).appendingPathComponent("Bravura")
-                    if FileManager.default.fileExists(atPath: bravuraPath) {
-                        foundResourcePath = resourcePath
-                        break
-                    }
-                }
-            }
-        }
-
-        // Method 4: Search in Xcode DerivedData (development workaround, macOS only)
-        #if os(macOS)
-        if foundResourcePath == nil {
-            let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
-            let derivedDataPath = (homeDir as NSString).appendingPathComponent("Library/Developer/Xcode/DerivedData")
-
-            do {
-                let derivedDataContents = try FileManager.default.contentsOfDirectory(atPath: derivedDataPath)
-
-                for projectFolder in derivedDataContents where projectFolder.hasPrefix("MusicSheetsCopilot") {
-                    let projectPath = (derivedDataPath as NSString).appendingPathComponent(projectFolder)
-                    let checkoutsPath = (projectPath as NSString).appendingPathComponent("SourcePackages/checkouts/verovio/data")
-
-                    if FileManager.default.fileExists(atPath: checkoutsPath) {
-                        foundResourcePath = checkoutsPath
-                        break
-                    }
-                }
-            } catch {
-            }
-        }
-        #endif
-
-        // Set the resource path if we found it
-        if let resourcePath = foundResourcePath {
+        // The Verovio data folder is now bundled in the app via Copy Bundle Resources
+        // It's copied from the symlink at MusicSheetsCopilot/Resources/verovio-data
+        if let resourcePath = Bundle.main.path(forResource: "verovio-data", ofType: nil) {
+            print("VerovioService: Found Verovio data in app bundle: \(resourcePath)")
             self.resourcePath = resourcePath
-            _ = toolkit.setResourcePath(resourcePath)
+            let result = toolkit.setResourcePath(resourcePath)
+            print("VerovioService: setResourcePath result: \(result)")
+        } else {
+            print("VerovioService: WARNING - Verovio data not found in app bundle!")
+            print("   Make sure you've run: ./Scripts/setup-verovio-symlink.sh")
+            print("   and added verovio-data folder to Copy Bundle Resources in Xcode")
         }
     }
 

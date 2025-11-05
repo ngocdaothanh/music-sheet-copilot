@@ -45,8 +45,66 @@ A universal iOS and macOS app for viewing MusicXML sheet music files, powered by
 
 1. Open `MusicSheetsCopilot.xcodeproj` in Xcode
 2. Wait for Swift Package Manager to download Verovio (first time only)
-3. Select your target device (Mac, iPhone, or iPad simulator)
-4. Press `Cmd + R` to build and run
+3. **Add Verovio data resources** (required for iOS, see below)
+4. Select your target device (Mac, iPhone, or iPad simulator)
+5. Press `Cmd + R` to build and run
+
+### Adding Verovio Data Resources
+
+The Verovio library requires font data files (Bravura, Leipzig, etc.) to render music notation. On macOS, these are found automatically during development, but on iOS you need to add them to your app bundle.
+
+#### Setup Instructions (One-time setup)
+
+**Step 1: Create Symlink to Verovio Data**
+
+After opening the project in Xcode and letting Swift Package Manager download Verovio, run:
+
+```bash
+./Scripts/setup-verovio-symlink.sh
+```
+
+This creates a symlink at `MusicSheetsCopilot/Resources/verovio-data` pointing to the Verovio data folder in DerivedData.
+
+**Step 2: Add the symlink to .gitignore**
+
+The symlink is machine-specific, so add it to `.gitignore`:
+
+```bash
+echo "MusicSheetsCopilot/Resources/verovio-data" >> .gitignore
+```
+
+**Step 3: Add to Copy Bundle Resources**
+
+1. In Xcode, click on the **MusicSheetsCopilot** project (blue icon)
+2. Select the **MusicSheetsCopilot** target
+3. Go to the **Build Phases** tab
+4. Expand **"Copy Bundle Resources"**
+5. Click the **"+"** button
+6. Click **"Add Other..."** → **"Add Files..."**
+7. Navigate to your project folder and select: `MusicSheetsCopilot/Resources/verovio-data`
+8. Click **"Add"**
+9. The `verovio-data` folder should now appear in the Copy Bundle Resources list
+
+### How It Works
+
+1. **Verovio Swift Package** is downloaded by Xcode's Swift Package Manager to:
+   ```
+   ~/Library/Developer/Xcode/DerivedData/MusicSheetsCopilot-.../SourcePackages/checkouts/verovio/data
+   ```
+
+2. **Setup script** creates a symlink in your repo:
+   ```
+   MusicSheetsCopilot/Resources/verovio-data → DerivedData/.../verovio/data
+   ```
+
+3. **Xcode Copy Bundle Resources** follows the symlink and copies the actual data files into your app bundle at build time
+
+**Advantages:**
+- ✅ No large data files committed to your repository
+- ✅ Data stays in sync with the Verovio package version
+- ✅ Simple standard Xcode build phase (no custom scripts needed)
+- ✅ Works with Xcode's sandbox enabled
+- ✅ Each developer runs the setup script once
 
 ### Swift Package Manager
 
