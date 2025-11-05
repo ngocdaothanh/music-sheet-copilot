@@ -35,13 +35,13 @@ class Metronome: ObservableObject {
     private var metronomeStartTime: Date?
     private var metronomePausedTime: TimeInterval = 0
     private var noteEvents: [(time: TimeInterval, midiNote: UInt8, channel: UInt8)] = []
-    private var firstStaffChannel: UInt8 = 0  // Cache the first staff's channel
-    private var totalDuration: TimeInterval = 0  // Total duration based on last note event
+    var firstStaffChannel: UInt8 = 0  // Cache the first staff's channel (internal for testing)
+    var totalDuration: TimeInterval = 0  // Total duration based on last note event (internal for testing)
     private var lastBeatTime: TimeInterval = 0  // Track when we last advanced the beat (for solfege mode)
 
     // Map MIDI note number to solfege syllable
     // MIDI notes: C=0, C#=1, D=2, D#=3, E=4, F=5, F#=6, G=7, G#=8, A=9, A#=10, B=11
-    private func midiNoteToSolfege(_ midiNote: UInt8) -> String {
+    func midiNoteToSolfege(_ midiNote: UInt8) -> String {
         let noteInOctave = Int(midiNote) % 12
         let solfegeMap = [
             "Do",  // C

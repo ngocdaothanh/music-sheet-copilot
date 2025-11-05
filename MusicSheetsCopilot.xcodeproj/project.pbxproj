@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -21,9 +21,20 @@
 		E1A037 /* VerovioService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A038 /* VerovioService.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		737158DB2EBB87AF00645726 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E1A028 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E1A024;
+			remoteInfo = MusicSheetsCopilot;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		7306849C2EBA1C7B001BCE5B /* fur_elise.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = fur_elise.xml; sourceTree = "<group>"; };
 		7306849E2EBA32FC001BCE5B /* MetronomeVisualView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetronomeVisualView.swift; sourceTree = "<group>"; };
+		737158D72EBB87AF00645726 /* MusicSheetsCopilotTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MusicSheetsCopilotTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		73AD151B2EB9A8F400478D55 /* MultiPageSVGMusicSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiPageSVGMusicSheetView.swift; sourceTree = "<group>"; };
 		73AD151D2EB9B16A00478D55 /* MIDIPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MIDIPlayer.swift; sourceTree = "<group>"; };
 		73AD151F2EB9BF3D00478D55 /* Metronome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Metronome.swift; sourceTree = "<group>"; };
@@ -37,7 +48,18 @@
 		E1A038 /* VerovioService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerovioService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		737158D82EBB87AF00645726 /* MusicSheetsCopilotTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = MusicSheetsCopilotTests; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
 /* Begin PBXFrameworksBuildPhase section */
+		737158D42EBB87AF00645726 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E1A017 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -53,6 +75,7 @@
 			isa = PBXGroup;
 			children = (
 				E1A019 /* MusicSheetsCopilot */,
+				737158D82EBB87AF00645726 /* MusicSheetsCopilotTests */,
 				E1A020 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -75,6 +98,7 @@
 			isa = PBXGroup;
 			children = (
 				E1A015 /* MusicSheetsCopilot.app */,
+				737158D72EBB87AF00645726 /* MusicSheetsCopilotTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -111,6 +135,29 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		737158D62EBB87AF00645726 /* MusicSheetsCopilotTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 737158DF2EBB87AF00645726 /* Build configuration list for PBXNativeTarget "MusicSheetsCopilotTests" */;
+			buildPhases = (
+				737158D32EBB87AF00645726 /* Sources */,
+				737158D42EBB87AF00645726 /* Frameworks */,
+				737158D52EBB87AF00645726 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				737158DC2EBB87AF00645726 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				737158D82EBB87AF00645726 /* MusicSheetsCopilotTests */,
+			);
+			name = MusicSheetsCopilotTests;
+			packageProductDependencies = (
+			);
+			productName = MusicSheetsCopilotTests;
+			productReference = 737158D72EBB87AF00645726 /* MusicSheetsCopilotTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		E1A024 /* MusicSheetsCopilot */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = E1A025 /* Build configuration list for PBXNativeTarget "MusicSheetsCopilot" */;
@@ -138,9 +185,13 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1500;
+				LastSwiftUpdateCheck = 2610;
 				LastUpgradeCheck = 1500;
 				TargetAttributes = {
+					737158D62EBB87AF00645726 = {
+						CreatedOnToolsVersion = 26.1;
+						TestTargetID = E1A024;
+					};
 					E1A024 = {
 						CreatedOnToolsVersion = 15.0;
 					};
@@ -163,11 +214,19 @@
 			projectRoot = "";
 			targets = (
 				E1A024 /* MusicSheetsCopilot */,
+				737158D62EBB87AF00645726 /* MusicSheetsCopilotTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		737158D52EBB87AF00645726 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E1A027 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -181,6 +240,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		737158D32EBB87AF00645726 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E1A026 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -198,7 +264,59 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		737158DC2EBB87AF00645726 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E1A024 /* MusicSheetsCopilot */;
+			targetProxy = 737158DB2EBB87AF00645726 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		737158DD2EBB87AF00645726 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = JK342EG2L2;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.1;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.toxgam.MusicSheetsCopilotTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MusicSheetsCopilot.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MusicSheetsCopilot";
+			};
+			name = Debug;
+		};
+		737158DE2EBB87AF00645726 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = JK342EG2L2;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.1;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.toxgam.MusicSheetsCopilotTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MusicSheetsCopilot.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MusicSheetsCopilot";
+			};
+			name = Release;
+		};
 		E1A030 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -398,6 +516,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		737158DF2EBB87AF00645726 /* Build configuration list for PBXNativeTarget "MusicSheetsCopilotTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				737158DD2EBB87AF00645726 /* Debug */,
+				737158DE2EBB87AF00645726 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		E1A025 /* Build configuration list for PBXNativeTarget "MusicSheetsCopilot" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
