@@ -200,4 +200,162 @@ struct MetronomeTimeBasedTests {
 
         metronome.stop()
     }
+
+    @Test("Metronome syncs to MIDI position when started during MIDI playback")
+    func metronomeStartsSyncedToMIDIPosition() async {
+        let mockTime = MockTimeProvider()
+        let metronome = Metronome(timeProvider: mockTime)
+        let midiPlayer = MIDIPlayer()
+
+        // Setup MIDI player as if it's playing at a specific position
+        // At 120 BPM in 4/4 time, each beat is 0.5 seconds
+        // Position 1.5 seconds = 3rd beat (beat index 2 in 0-based counting)
+        midiPlayer.isPlaying = true
+        // Note: We can't directly set currentTime without loading MIDI,
+        // so we'll mock the behavior by setting it after "loading"
+
+        metronome.midiPlayer = midiPlayer
+        metronome.bpm = 120.0  // 2 beats per second
+        metronome.timeSignature = (4, 4)
+        metronome.mode = .tick
+        metronome.isEnabled = true
+
+        // Simulate MIDI at 1.5 seconds (which should be beat 3, index 2)
+        // We need to manually set this since we're not using a real MIDI file
+        midiPlayer.currentTime = 1.5
+
+        // Start metronome while MIDI is playing
+        metronome.start()
+
+        // Wait for initialization
+        try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+
+        // The metronome should start at beat 3 (index 2)
+        // At 1.5s with 120 BPM: beat = floor(1.5 / 0.5) % 4 = 3 % 4 = 3
+        // But after the immediate tick in start(), it advances to beat 0
+        let currentBeat = await MainActor.run { metronome.currentBeat }
+        #expect(currentBeat == 3)  // Should be at beat 3 after immediate tick
+
+        metronome.stop()
+    }
+
+    @Test("Metronome syncs to different MIDI positions correctly")
+    func metronomeStartsSyncedToDifferentPositions() async {
+        let mockTime = MockTimeProvider()
+
+        // Test different starting positions
+        let testCases: [(midiTime: TimeInterval, expectedBeat: Int, description: String)] = [
+            (0.0, 0, "Start of piece"),
+            (0.5, 1, "After 1 beat"),
+            (1.0, 2, "After 2 beats"),
+            (1.5, 3, "After 3 beats"),
+            (2.0, 0, "After 4 beats (wraps to 0)"),
+            (2.5, 1, "After 5 beats (wraps to 1)"),
+            (3.7, 3, "Mid-beat rounds down to beat 3"),
+        ]
+
+        for testCase in testCases {
+            let metronome = Metronome(timeProvider: mockTime)
+            let midiPlayer = MIDIPlayer()
+
+            midiPlayer.isPlaying = true
+            midiPlayer.currentTime = testCase.midiTime
+
+            metronome.midiPlayer = midiPlayer
+            metronome.bpm = 120.0  // 2 beats per second, 0.5s per beat
+            metronome.timeSignature = (4, 4)
+            metronome.mode = .tick
+            metronome.isEnabled = true
+
+            metronome.start()
+
+            try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+
+            let currentBeat = await MainActor.run { metronome.currentBeat }
+            #expect(currentBeat == testCase.expectedBeat,
+                   "\(testCase.description): Expected beat \(testCase.expectedBeat), got \(currentBeat)")
+
+            metronome.stop()
+        }
+    }
+
+    @Test("Metronome in counting mode syncs to MIDI position")
+    func countingModeStartsSyncedToMIDIPosition() async {
+        let mockTime = MockTimeProvider()
+        let metronome = Metronome(timeProvider: mockTime)
+        let midiPlayer = MIDIPlayer()
+
+        midiPlayer.isPlaying = true
+        midiPlayer.currentTime = 1.0  // 2 beats in (0.5s per beat at 120 BPM)
+
+        metronome.midiPlayer = midiPlayer
+        metronome.bpm = 120.0
+        metronome.timeSignature = (4, 4)
+        metronome.mode = .counting
+        metronome.isEnabled = true
+
+        metronome.start()
+
+        try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+
+        // Should start at beat 2 (index 2), but after immediate count it advances to beat 3
+        let currentBeat = await MainActor.run { metronome.currentBeat }
+        #expect(currentBeat == 3)
+
+        metronome.stop()
+    }
+
+    @Test("Metronome in solfege mode syncs to MIDI position")
+    func solfegeModeStartsSyncedToMIDIPosition() async {
+        let mockTime = MockTimeProvider()
+        let metronome = Metronome(timeProvider: mockTime)
+        let midiPlayer = MIDIPlayer()
+
+        midiPlayer.isPlaying = true
+        midiPlayer.currentTime = 0.75  // 1.5 beats in
+
+        metronome.midiPlayer = midiPlayer
+        metronome.bpm = 120.0
+        metronome.timeSignature = (4, 4)
+        metronome.mode = .solfege
+        metronome.isEnabled = true
+
+        metronome.start()
+
+        try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+
+        // Should start at beat 1 (floor(0.75 / 0.5) = 1)
+        let currentBeat = await MainActor.run { metronome.currentBeat }
+        #expect(currentBeat == 1)
+
+        metronome.stop()
+    }
+
+    @Test("Metronome starts from beat 0 when MIDI is not playing")
+    func metronomeStartsFromZeroWhenMIDINotPlaying() async {
+        let mockTime = MockTimeProvider()
+        let metronome = Metronome(timeProvider: mockTime)
+        let midiPlayer = MIDIPlayer()
+
+        // MIDI is NOT playing
+        midiPlayer.isPlaying = false
+        midiPlayer.currentTime = 5.0  // Even though there's a position, it shouldn't be used
+
+        metronome.midiPlayer = midiPlayer
+        metronome.bpm = 120.0
+        metronome.timeSignature = (4, 4)
+        metronome.mode = .tick
+        metronome.isEnabled = true
+
+        metronome.start()
+
+        try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+
+        // Should start from beat 0 since MIDI is not playing
+        // After immediate tick for beat 0, currentBeat stays at 0 (showing the beat that was just played)
+        let currentBeat = await MainActor.run { metronome.currentBeat }
+        #expect(currentBeat == 0)
+
+        metronome.stop()
+    }
 }

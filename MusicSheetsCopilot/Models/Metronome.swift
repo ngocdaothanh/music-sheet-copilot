@@ -145,36 +145,52 @@ class Metronome: ObservableObject {
         #endif
 
         isTicking = true
-        tickCount = 0
-        currentBeat = 0  // Reset visual beat indicator
         lastSpokenTime = -1
         lastSpokenNotes = []
         lastBeatTime = 0  // Reset beat timing
 
-        // Initialize metronome-only mode timing
-        metronomeStartTime = timeProvider.now()
-        metronomePausedTime = 0
+        // Calculate initial beat position based on current playback time
+        let initialTime: TimeInterval
+        if midiPlayer?.isPlaying == true {
+            // MIDI is playing: sync to MIDI's current position
+            initialTime = midiPlayer!.currentTime
+        } else {
+            // Metronome-only mode: start from beginning
+            initialTime = 0
+            metronomeStartTime = timeProvider.now()
+            metronomePausedTime = 0
+        }
 
-        // Play an immediate tick/count when starting
+        // Calculate which beat we should be on based on the initial time
+        let beatDuration = 60.0 / bpm
+        let initialBeat = Int(initialTime / beatDuration) % timeSignature.0
+        tickCount = initialBeat
+        currentBeat = initialBeat
+
+        // Play an immediate tick/count when starting (for the current beat position)
         if mode == .tick {
             playTickSound()
             // Increment tickCount so the timer continues from the next beat
+            // But don't update currentBeat yet - it stays at the beat we just played
             tickCount += 1
             if tickCount >= timeSignature.0 {
                 tickCount = 0
             }
         } else if mode == .counting {
             speakCount()
-            // Increment tickCount and currentBeat so the timer continues from the next beat
+            // Increment tickCount so the timer continues from the next beat
             tickCount += 1
-            currentBeat = 1
+            // Update currentBeat for visual display
+            currentBeat = tickCount
             if tickCount >= timeSignature.0 {
                 tickCount = 0
                 currentBeat = 0
             }
         } else if mode == .solfege {
-            // In solfege mode, speak the first note immediately if available
-            if !noteEvents.isEmpty && midiPlayer?.isPlaying != true {
+            // In solfege mode, speak notes at the current position
+            if midiPlayer?.isPlaying == true {
+                speakNotesAtCurrentTime()
+            } else if !noteEvents.isEmpty {
                 speakNotesAtMetronomeTime()
             }
         }
