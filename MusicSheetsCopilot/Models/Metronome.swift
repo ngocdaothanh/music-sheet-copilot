@@ -28,6 +28,7 @@ class Metronome: ObservableObject {
     private var timer: TimerProtocol?  // Changed from Timer? to TimerProtocol?
     private var tickCount: Int = 0
     private var subdivisionCount: Int = 0  // Track position within a beat (0 to subdivisions-1)
+    private var lastSpokenSubdivisionIndex: Int = -1 // For MIDI counting mode
     private var speechSynthesizer = AVSpeechSynthesizer()
 
     // For MIDI sync: track when we started and what the MIDI time was at start
@@ -230,7 +231,8 @@ class Metronome: ObservableObject {
                     tickCount = 0
                 }
             } else if mode == .counting {
-                speakCount(subdivisionIndex: initialSubdivision)
+                print("🎬 START COUNTING: initialBeat=\(initialBeat), initialSubdivision=\(initialSubdivision), bpm=\(bpm)")
+                speakCount(beat: initialBeat, subdivisionIndex: initialSubdivision)
 
                 // Advance subdivision
                 subdivisionCount += 1
@@ -423,33 +425,17 @@ class Metronome: ObservableObject {
                 let currentBeatIndex = totalSubdivisionIndex / subdivisions % timeSignature.0
                 let currentSubdivisionIndex = totalSubdivisionIndex % subdivisions
 
-                // Track the last subdivision we counted to avoid duplicate counts
-                let lastTotalSubdivision = currentBeat * subdivisions + subdivisionCount
-
-                // Only count if we've moved to a new subdivision
-                if totalSubdivisionIndex != lastTotalSubdivision {
+                // Only speak if we've moved to a new subdivision
+                if totalSubdivisionIndex != lastSpokenSubdivisionIndex {
+                    lastSpokenSubdivisionIndex = totalSubdivisionIndex
                     currentBeat = currentBeatIndex
-                    tickCount = currentBeatIndex
                     subdivisionCount = currentSubdivisionIndex
-
-                    speakCount(subdivisionIndex: currentSubdivisionIndex)
-
-                    // Update for next subdivision
-                    if subdivisions == 1 {
-                        // Quarter notes: advance beat
-                        tickCount += 1
-                        currentBeat = tickCount
-                        if tickCount >= timeSignature.0 {
-                            tickCount = 0
-                            currentBeat = 0
-                        }
-                    }
-                    // For subdivisions > 1, beat advances are handled by the subdivision tracking
+                    speakCount(beat: currentBeatIndex, subdivisionIndex: currentSubdivisionIndex)
                 }
             } else {
                 // Metronome-only mode: count on every timer fire
                 currentBeat = tickCount
-                speakCount(subdivisionIndex: subdivisionCount)
+                speakCount(beat: tickCount, subdivisionIndex: subdivisionCount)
 
                 // Advance subdivision
                 subdivisionCount += 1
@@ -584,12 +570,12 @@ class Metronome: ObservableObject {
         }
     }
 
-    private func speakCount(subdivisionIndex: Int = 0) {
+    private func speakCount(beat: Int, subdivisionIndex: Int = 0) {
         let text: String
 
         if subdivisions == 1 {
             // Quarter notes: traditional counting (1, 2, 3, 4...)
-            let beatNumber = tickCount + 1
+            let beatNumber = beat + 1
             let numberWords = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight",
                               "Nine", "Ten", "Eleven", "Twelve"]
             guard beatNumber <= numberWords.count else { return }
@@ -597,7 +583,7 @@ class Metronome: ObservableObject {
         } else if subdivisions == 2 {
             // Eighth notes: 1 and 2 and 3 and...
             if subdivisionIndex == 0 {
-                let beatNumber = tickCount + 1
+                let beatNumber = beat + 1
                 let numberWords = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight",
                                   "Nine", "Ten", "Eleven", "Twelve"]
                 guard beatNumber <= numberWords.count else { return }
@@ -608,7 +594,7 @@ class Metronome: ObservableObject {
         } else if subdivisions == 4 {
             // Sixteenth notes: 1 e and a 2 e and a...
             if subdivisionIndex == 0 {
-                let beatNumber = tickCount + 1
+                let beatNumber = beat + 1
                 let numberWords = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight",
                                   "Nine", "Ten", "Eleven", "Twelve"]
                 guard beatNumber <= numberWords.count else { return }
