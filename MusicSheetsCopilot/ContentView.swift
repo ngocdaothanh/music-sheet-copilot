@@ -596,6 +596,10 @@ struct ContentView: View {
         switch playbackMode {
         case .midiWithMetronome:
             midiPlayer.togglePlayPause()
+
+            // Notify metronome of MIDI playback state change
+            metronome.onMIDIPlaybackStateChanged()
+
             // Sync metronome with MIDI playback
             if midiPlayer.isPlaying && metronome.isEnabled {
                 let bpm = verovioService.getTempoBPM() ?? 120.0

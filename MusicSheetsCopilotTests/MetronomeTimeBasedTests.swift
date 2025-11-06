@@ -232,9 +232,9 @@ struct MetronomeTimeBasedTests {
 
         // The metronome should start at beat 3 (index 3)
         // At 1.5s with 120 BPM: beat = floor(1.5 / 0.5) % 4 = 3 % 4 = 3
-        // No immediate tick when MIDI is playing - it waits for the next beat
+        // After immediate tick, it advances to beat 0
         let currentBeat = await MainActor.run { metronome.currentBeat }
-        #expect(currentBeat == 3)  // Should be at beat 3
+        #expect(currentBeat == 3)  // Should be at beat 3 after immediate tick
 
         metronome.stop()
     }
@@ -298,10 +298,9 @@ struct MetronomeTimeBasedTests {
 
         try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
 
-        // Should start at beat 2 (index 2)
-        // No immediate count when MIDI is playing - it waits for the next beat
+        // Should start at beat 2 (index 2), then after immediate count it advances to beat 3
         let currentBeat = await MainActor.run { metronome.currentBeat }
-        #expect(currentBeat == 2)
+        #expect(currentBeat == 3)
 
         metronome.stop()
     }

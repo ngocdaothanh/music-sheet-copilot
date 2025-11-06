@@ -26,6 +26,10 @@ class Metronome: ObservableObject {
     private var tickCount: Int = 0
     private var speechSynthesizer = AVSpeechSynthesizer()
 
+    // For MIDI sync: track when we started and what the MIDI time was at start
+    private var midiSyncStartTime: Date?
+    private var midiSyncStartPosition: TimeInterval = 0
+
     // Dependency injection for time provider (defaults to system time)
     private let timeProvider: TimeProvider
 
@@ -139,6 +143,25 @@ class Metronome: ObservableObject {
     func start() {
         guard isEnabled else { return }
 
+        // If already ticking, just re-sync (don't restart)
+        if isTicking {
+            // Check if we need to sync with MIDI that just started
+            if let player = midiPlayer, player.isPlaying, midiSyncStartTime == nil {
+                midiSyncStartTime = timeProvider.now()
+                midiSyncStartPosition = player.currentTime
+
+                // Update beat position to match MIDI
+                let beatDuration = 60.0 / bpm
+                let currentBeat = Int(player.currentTime / beatDuration) % timeSignature.0
+                self.currentBeat = currentBeat
+                self.tickCount = currentBeat
+
+                // Update timer to switch to MIDI sync mode
+                updateTimer()
+            }
+            return
+        }
+
         // Configure audio session for iOS
         #if os(iOS)
         configureAudioSession()
@@ -154,11 +177,15 @@ class Metronome: ObservableObject {
         if midiPlayer?.isPlaying == true {
             // MIDI is playing: sync to MIDI's current position
             initialTime = midiPlayer!.currentTime
+            // Track when we started syncing with MIDI
+            midiSyncStartTime = timeProvider.now()
+            midiSyncStartPosition = initialTime
         } else {
             // Metronome-only mode: start from beginning
             initialTime = 0
             metronomeStartTime = timeProvider.now()
             metronomePausedTime = 0
+            midiSyncStartTime = nil
         }
 
         // Calculate which beat we should be on based on the initial time
@@ -167,38 +194,41 @@ class Metronome: ObservableObject {
         tickCount = initialBeat
         currentBeat = initialBeat
 
-        // Only play immediate tick/count when starting in metronome-only mode
-        // When MIDI is playing, wait for the next beat to maintain sync
-        let shouldPlayImmediate = midiPlayer?.isPlaying != true
+        // When MIDI is playing, check if we're starting exactly on a beat boundary
+        // If so, play an immediate tick; otherwise wait for the next beat
+        let shouldPlayImmediate: Bool
+        if midiPlayer?.isPlaying == true {
+            // Check if we're very close to a beat boundary (within 50ms tolerance)
+            let timeIntoBeat = initialTime.truncatingRemainder(dividingBy: beatDuration)
+            shouldPlayImmediate = timeIntoBeat < 0.05  // Within 50ms of beat start
+        } else {
+            // Metronome-only mode: always play immediate tick
+            shouldPlayImmediate = true
+        }
 
         if shouldPlayImmediate {
-            // Play an immediate tick/count when starting (for the current beat position)
+            // Play immediate tick/count since we're on or near a beat boundary
             if mode == .tick {
                 playTickSound()
-                // Increment tickCount so the timer continues from the next beat
-                // But don't update currentBeat yet - it stays at the beat we just played
+                // currentBeat stays at initialBeat (represents the beat being played)
                 tickCount += 1
                 if tickCount >= timeSignature.0 {
                     tickCount = 0
                 }
             } else if mode == .counting {
                 speakCount()
-                // Increment tickCount so the timer continues from the next beat
                 tickCount += 1
-                // Update currentBeat for visual display
                 currentBeat = tickCount
                 if tickCount >= timeSignature.0 {
                     tickCount = 0
                     currentBeat = 0
                 }
             } else if mode == .solfege {
-                // In solfege mode, speak notes at the current position
                 if !noteEvents.isEmpty {
                     speakNotesAtMetronomeTime()
                 }
             }
         }
-        // When MIDI is playing, just set the beat position and let the timer handle the rest
 
         updateTimer()
     }
@@ -213,6 +243,8 @@ class Metronome: ObservableObject {
         lastSpokenNotes = []
         metronomeStartTime = nil
         metronomePausedTime = 0
+        midiSyncStartTime = nil
+        midiSyncStartPosition = 0
         // Stop speech synthesis on main queue to avoid priority inversion
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
@@ -222,15 +254,52 @@ class Metronome: ObservableObject {
         }
     }
 
+    /// Call this when MIDI playback state changes (starts or stops)
+    /// This allows the metronome to re-sync with MIDI timing
+    func onMIDIPlaybackStateChanged() {
+        guard isTicking else { return }
+        updateTimer()
+    }
+
     private func updateTimer() {
         timer?.invalidate()
         guard isEnabled && isTicking else { return }
 
+        // Check if we need to sync with MIDI that just started playing
+        if let player = midiPlayer, player.isPlaying, midiSyncStartTime == nil {
+            // MIDI is now playing but we weren't tracking it - start tracking
+            midiSyncStartTime = timeProvider.now()
+            midiSyncStartPosition = player.currentTime
+
+            // Update beat position to match MIDI
+            let beatDuration = 60.0 / bpm
+            let currentBeat = Int(player.currentTime / beatDuration) % timeSignature.0
+            self.currentBeat = currentBeat
+            self.tickCount = currentBeat
+        } else if midiPlayer?.isPlaying != true && midiSyncStartTime != nil {
+            // MIDI stopped - switch back to metronome-only mode
+            midiSyncStartTime = nil
+            midiSyncStartPosition = 0
+            metronomeStartTime = timeProvider.now()
+            metronomePausedTime = 0
+        }
+
         // Adjust BPM by playback rate
         let adjustedBPM = bpm * Double(playbackRate)
 
-        // When using solfege names, check more frequently to catch note events
-        let interval = mode == .solfege ? 0.05 : (60.0 / adjustedBPM)
+        // When syncing with MIDI playback, check frequently to catch beat boundaries
+        // Otherwise use the beat duration
+        let interval: TimeInterval
+        if midiPlayer?.isPlaying == true {
+            // Check every 50ms when MIDI is playing to catch beat boundaries precisely
+            interval = 0.05
+        } else if mode == .solfege {
+            // Solfege mode also checks frequently to catch note events
+            interval = 0.05
+        } else {
+            // Metronome-only mode: tick at beat intervals
+            interval = 60.0 / adjustedBPM
+        }
 
         timer = timeProvider.scheduleTimer(interval: interval, repeats: true) { [weak self] in
             self?.tick()
@@ -250,11 +319,31 @@ class Metronome: ObservableObject {
 
         switch mode {
         case .tick:
-            playTickSound()
-            currentBeat = tickCount  // Update visual indicator before incrementing
-            tickCount += 1
-            if tickCount >= timeSignature.0 {
-                tickCount = 0
+            // When MIDI is playing, check if we're actually on a beat boundary
+            if let player = midiPlayer, player.isPlaying,
+               midiSyncStartTime != nil {
+                let currentMIDITime = player.currentTime
+                let beatDuration = 60.0 / bpm
+                let currentBeatIndex = Int(currentMIDITime / beatDuration) % timeSignature.0
+
+                // Only tick if we've actually moved to a new beat
+                if currentBeatIndex != currentBeat {
+                    currentBeat = currentBeatIndex
+                    tickCount = currentBeatIndex
+                    playTickSound()
+                    tickCount += 1
+                    if tickCount >= timeSignature.0 {
+                        tickCount = 0
+                    }
+                }
+            } else {
+                // Metronome-only mode: tick on every timer fire
+                playTickSound()
+                currentBeat = tickCount
+                tickCount += 1
+                if tickCount >= timeSignature.0 {
+                    tickCount = 0
+                }
             }
         case .solfege:
             // In solfege mode, update beat based on time, not on every timer tick
@@ -290,11 +379,33 @@ class Metronome: ObservableObject {
                 speakNotesAtMetronomeTime()
             }
         case .counting:
-            currentBeat = tickCount  // Update visual indicator before incrementing
-            speakCount()
-            tickCount += 1
-            if tickCount >= timeSignature.0 {
-                tickCount = 0
+            // When MIDI is playing, check if we're actually on a beat boundary
+            if let player = midiPlayer, player.isPlaying,
+               midiSyncStartTime != nil {
+                let currentMIDITime = player.currentTime
+                let beatDuration = 60.0 / bpm
+                let currentBeatIndex = Int(currentMIDITime / beatDuration) % timeSignature.0
+
+                // Only count if we've actually moved to a new beat
+                if currentBeatIndex != currentBeat {
+                    currentBeat = currentBeatIndex
+                    tickCount = currentBeatIndex
+                    speakCount()
+                    tickCount += 1
+                    currentBeat = tickCount
+                    if tickCount >= timeSignature.0 {
+                        tickCount = 0
+                        currentBeat = 0
+                    }
+                }
+            } else {
+                // Metronome-only mode: count on every timer fire
+                currentBeat = tickCount
+                speakCount()
+                tickCount += 1
+                if tickCount >= timeSignature.0 {
+                    tickCount = 0
+                }
             }
         }
     }
