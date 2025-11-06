@@ -279,6 +279,12 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
         webView.isOpaque = false
         webView.backgroundColor = .clear
         webView.scrollView.backgroundColor = .clear
+
+        // Disable zooming
+        webView.scrollView.minimumZoomScale = 1.0
+        webView.scrollView.maximumZoomScale = 1.0
+        webView.scrollView.bouncesZoom = false
+
         return webView
     }
 
@@ -345,7 +351,7 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
         <html>
         <head>
             <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
             <style>
                 body {
                     margin: 0;
