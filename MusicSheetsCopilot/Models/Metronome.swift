@@ -167,33 +167,38 @@ class Metronome: ObservableObject {
         tickCount = initialBeat
         currentBeat = initialBeat
 
-        // Play an immediate tick/count when starting (for the current beat position)
-        if mode == .tick {
-            playTickSound()
-            // Increment tickCount so the timer continues from the next beat
-            // But don't update currentBeat yet - it stays at the beat we just played
-            tickCount += 1
-            if tickCount >= timeSignature.0 {
-                tickCount = 0
-            }
-        } else if mode == .counting {
-            speakCount()
-            // Increment tickCount so the timer continues from the next beat
-            tickCount += 1
-            // Update currentBeat for visual display
-            currentBeat = tickCount
-            if tickCount >= timeSignature.0 {
-                tickCount = 0
-                currentBeat = 0
-            }
-        } else if mode == .solfege {
-            // In solfege mode, speak notes at the current position
-            if midiPlayer?.isPlaying == true {
-                speakNotesAtCurrentTime()
-            } else if !noteEvents.isEmpty {
-                speakNotesAtMetronomeTime()
+        // Only play immediate tick/count when starting in metronome-only mode
+        // When MIDI is playing, wait for the next beat to maintain sync
+        let shouldPlayImmediate = midiPlayer?.isPlaying != true
+
+        if shouldPlayImmediate {
+            // Play an immediate tick/count when starting (for the current beat position)
+            if mode == .tick {
+                playTickSound()
+                // Increment tickCount so the timer continues from the next beat
+                // But don't update currentBeat yet - it stays at the beat we just played
+                tickCount += 1
+                if tickCount >= timeSignature.0 {
+                    tickCount = 0
+                }
+            } else if mode == .counting {
+                speakCount()
+                // Increment tickCount so the timer continues from the next beat
+                tickCount += 1
+                // Update currentBeat for visual display
+                currentBeat = tickCount
+                if tickCount >= timeSignature.0 {
+                    tickCount = 0
+                    currentBeat = 0
+                }
+            } else if mode == .solfege {
+                // In solfege mode, speak notes at the current position
+                if !noteEvents.isEmpty {
+                    speakNotesAtMetronomeTime()
+                }
             }
         }
+        // When MIDI is playing, just set the beat position and let the timer handle the rest
 
         updateTimer()
     }
