@@ -394,12 +394,23 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
                     }
                 }
 
+                // Save state before seek
+                let wasMIDIPlaying = midiPlayer?.isPlaying ?? false
+                // 1. Seek MIDI
                 midiPlayer?.seek(to: measureStartTime)
 
-                // Also update metronome to the same position so they stay in sync
+                // 2. If MIDI was playing before, resume playback
+                if wasMIDIPlaying {
+                    midiPlayer?.play()
+                }
+
+                // 3. Seek metronome
                 if let met = metronome {
-                    print("[SVG] Updating metronome to \(measureStartTime)")
                     met.seek(to: measureStartTime)
+                    // 4. Always ensure metronome is started if MIDI was playing before and metronome is enabled
+                    if wasMIDIPlaying && met.isEnabled {
+                        met.start()
+                    }
                 }
             }
         }

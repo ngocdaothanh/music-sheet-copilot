@@ -106,8 +106,9 @@ struct ContentView: View {
             isImporting = true
         }
         .onChange(of: midiPlayer.isPlaying) { oldValue, newValue in
-            // Stop metronome when MIDI playback stops (e.g., when song finishes)
-            if !newValue && metronome.isTicking && playbackMode == .midiWithMetronome {
+            // Only stop metronome if MIDI playback truly stopped at the end, not after a seek
+            let atEnd = midiPlayer.duration > 0 && abs(midiPlayer.currentTime - midiPlayer.duration) < 0.1
+            if !newValue && metronome.isTicking && playbackMode == .midiWithMetronome && atEnd {
                 metronome.stop()
             }
         }
