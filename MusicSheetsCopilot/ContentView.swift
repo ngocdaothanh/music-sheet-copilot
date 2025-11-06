@@ -336,7 +336,7 @@ struct ContentView: View {
                         Divider()
                     }
 
-                    Button("Load Another") {
+                    Button("Load MusicXML file") {
                         isImporting = true
                     }
                 }
@@ -545,7 +545,7 @@ struct ContentView: View {
                         Divider()
                     }
 
-                    Button("Load Another") {
+                    Button("Load MusicXML file") {
                         isImporting = true
                     }
 
