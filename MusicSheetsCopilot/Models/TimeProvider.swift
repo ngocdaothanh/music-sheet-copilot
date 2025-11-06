@@ -29,9 +29,12 @@ class SystemTimeProvider: TimeProvider {
     }
 
     func scheduleTimer(interval: TimeInterval, repeats: Bool, block: @escaping () -> Void) -> TimerProtocol {
-        let timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: repeats) { _ in
+        let timer = Timer(timeInterval: interval, repeats: repeats) { _ in
             block()
         }
+        // Add timer to run loop with .common mode to ensure it continues firing
+        // even when UI interactions (like dropdown menus) are happening
+        RunLoop.current.add(timer, forMode: .common)
         return SystemTimer(timer: timer)
     }
 }

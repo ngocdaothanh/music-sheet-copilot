@@ -82,8 +82,8 @@ class Metronome: ObservableObject {
         self.noteEvents = events
         // Cache the first staff's channel (lowest channel number)
         self.firstStaffChannel = events.map { $0.channel }.min() ?? 0
-        // Calculate total duration from the last note event (add a bit of buffer)
-        self.totalDuration = (events.map { $0.time }.max() ?? 0) + 2.0
+        // Calculate total duration from the last note event (add a small buffer for the last note to ring)
+        self.totalDuration = (events.map { $0.time }.max() ?? 0) + 0.5
     }
 
     /// Get current playback time in metronome-only mode
@@ -331,8 +331,16 @@ class Metronome: ObservableObject {
     }
 
     private func tick() {
-        // Check if we've reached the end of the piece in metronome-only mode
-        if midiPlayer?.isPlaying != true && totalDuration > 0 {
+        // Check if we've reached the end of the piece
+        if let player = midiPlayer, player.isPlaying {
+            // When MIDI is playing, check if we're near the end
+            // Stop a bit early to avoid extra beats after the song finishes
+            if player.currentTime >= player.duration - 0.1 {
+                stop()
+                return
+            }
+        } else if totalDuration > 0 {
+            // Metronome-only mode: check against total duration
             let currentMetronomeTime = getCurrentMetronomeTime()
             if currentMetronomeTime >= totalDuration {
                 // Reached the end - stop playback

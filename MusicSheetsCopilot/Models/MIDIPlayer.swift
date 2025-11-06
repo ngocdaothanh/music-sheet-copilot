@@ -216,7 +216,7 @@ class MIDIPlayer: ObservableObject {
         // Invalidate any existing timer first
         stopTimer()
 
-        updateTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             guard let player = self.midiPlayer else { return }
 
@@ -226,6 +226,10 @@ class MIDIPlayer: ObservableObject {
                 self.currentTime = player.currentPosition
             }
         }
+        // Add timer to run loop with .common mode to ensure it continues firing
+        // even when UI interactions (like dropdown menus) are happening
+        RunLoop.current.add(timer, forMode: .common)
+        updateTimer = timer
     }
 
     private func stopTimer() {
