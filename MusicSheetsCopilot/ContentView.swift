@@ -484,6 +484,17 @@ struct ContentView: View {
                         }
                     }
                     .help("Adjust Tempo")
+                    .popover(isPresented: $showTempoPopover) {
+                        TempoSliderView(
+                            baseBPM: verovioService.getTempoBPM() ?? 120.0,
+                            playbackRate: $midiPlayer.playbackRate,
+                            onRateChange: { rate in
+                                setPlaybackRate(rate)
+                            }
+                        )
+                        .frame(width: 300, height: 120)
+                        .padding()
+                    }
 
                     Divider()
 
@@ -574,18 +585,6 @@ struct ContentView: View {
                     }
                 }
             }
-        }
-        #else
-        .popover(isPresented: $showTempoPopover) {
-            TempoSliderView(
-                baseBPM: verovioService.getTempoBPM() ?? 120.0,
-                playbackRate: $midiPlayer.playbackRate,
-                onRateChange: { rate in
-                    setPlaybackRate(rate)
-                }
-            )
-            .frame(width: 300, height: 120)
-            .padding()
         }
         #endif
     }
