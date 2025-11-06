@@ -60,11 +60,11 @@ class Metronome: ObservableObject {
     func midiNoteToSolfege(_ midiNote: UInt8) -> String {
         let noteInOctave = Int(midiNote) % 12
         let solfegeMap = [
-            "Do",  // C
-            "Do",  // C# (same as C)
-            "Re",  // D
-            "Re",  // D# (same as D)
-            "Mi",  // E
+            "Doh",  // C
+            "Doh",  // C# (same as C)
+            "Reh",  // D
+            "Reh",  // D# (same as D)
+            "Mee",  // E
             "Fa",  // F
             "Fa",  // F# (same as F)
             "Sol", // G
