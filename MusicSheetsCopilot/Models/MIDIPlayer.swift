@@ -190,8 +190,19 @@ class MIDIPlayer: ObservableObject {
             return
         }
 
-        // Clamp time to valid range
-        let seekTime = max(0, min(time, duration))
+        // Clamp time to valid range. If duration is unknown (0), allow seeking to requested time
+        let seekTime: TimeInterval
+        if duration > 0 {
+            // Avoid seeking exactly to duration which can cause AVMIDIPlayer to finish immediately
+            let epsilon: TimeInterval = 0.01
+            let maxSeekable = max(0, duration - epsilon)
+            seekTime = max(0, min(time, maxSeekable))
+        } else {
+            // duration not yet known -> don't clamp to 0 which would jump to start
+            seekTime = max(0, time)
+        }
+
+    // Debug logs removed
 
         let wasPlaying = isPlaying
         if wasPlaying {

@@ -284,6 +284,38 @@ class Metronome: ObservableObject {
         updateTimer()
     }
 
+    /// Seek metronome to a specific time (in seconds).
+    /// This updates internal timing so metronome currentTime and beat state reflect the requested position.
+    func seek(to time: TimeInterval) {
+        // If MIDI is playing, prefer syncing to MIDI player's position via midiSyncStartTime
+        if let player = midiPlayer, player.isPlaying {
+            // Set sync start so updateTimer will compute correctly
+            midiSyncStartTime = timeProvider.now()
+            midiSyncStartPosition = time
+
+            // Update current beat based on BPM
+            let beatDuration = 60.0 / bpm
+            let beatIndex = Int(time / beatDuration) % timeSignature.0
+            currentBeat = beatIndex
+            tickCount = beatIndex
+        } else {
+            // Metronome-only mode: set the paused time so getCurrentMetronomeTime returns `time`
+            metronomeStartTime = timeProvider.now()
+            metronomePausedTime = time
+
+            // Update beat indices
+            let beatDuration = 60.0 / bpm
+            let beatIndex = Int(time / beatDuration) % timeSignature.0
+            currentBeat = beatIndex
+            tickCount = beatIndex
+        }
+
+        // Publish currentTime immediately
+        DispatchQueue.main.async { [weak self] in
+            self?.currentTime = time
+        }
+    }
+
     private func updateTimer() {
         timer?.invalidate()
         guard isEnabled && isTicking else { return }

@@ -16,7 +16,7 @@ struct MultiPageSVGMusicSheetView: View {
         let isPlaying = playbackMode == .metronomeOnly ? metronome.isTicking : midiPlayer.isPlaying
 
         ScrollView(.vertical) {
-            CombinedSVGWebView(svgPages: svgPages, timingData: timingData, currentTime: currentTime, isPlaying: isPlaying)
+            CombinedSVGWebView(svgPages: svgPages, timingData: timingData, currentTime: currentTime, isPlaying: isPlaying, metronome: metronome)
                 .frame(maxWidth: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -31,13 +31,14 @@ struct CombinedSVGWebView: View {
     let isPlaying: Bool
     @EnvironmentObject var verovioService: VerovioService
     @EnvironmentObject var midiPlayer: MIDIPlayer
+    @ObservedObject var metronome: Metronome
 
     var body: some View {
         #if os(macOS)
-        CombinedSVGWebViewMac(svgPages: svgPages, timingData: timingData, currentTime: currentTime, isPlaying: isPlaying)
+        CombinedSVGWebViewMac(svgPages: svgPages, timingData: timingData, currentTime: currentTime, isPlaying: isPlaying, metronome: metronome)
             .frame(maxWidth: .infinity, minHeight: 800)
         #else
-        CombinedSVGWebViewiOS(svgPages: svgPages, timingData: timingData, currentTime: currentTime, isPlaying: isPlaying)
+        CombinedSVGWebViewiOS(svgPages: svgPages, timingData: timingData, currentTime: currentTime, isPlaying: isPlaying, metronome: metronome)
             .frame(maxWidth: .infinity, minHeight: 800)
         #endif
     }
@@ -51,6 +52,7 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
     let isPlaying: Bool
     @EnvironmentObject var verovioService: VerovioService
     @EnvironmentObject var midiPlayer: MIDIPlayer
+    @ObservedObject var metronome: Metronome
 
     func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
@@ -64,6 +66,7 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
         // Store references in coordinator
         context.coordinator.verovioService = verovioService
         context.coordinator.midiPlayer = midiPlayer
+        context.coordinator.metronome = metronome
 
         // Only reload HTML if pages changed (not on every time update)
         if context.coordinator.currentPages != svgPages {
@@ -95,6 +98,7 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
         var currentPages: [String] = []
         weak var verovioService: VerovioService?
         weak var midiPlayer: MIDIPlayer?
+        weak var metronome: Metronome?
 
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
             guard message.name == "noteClickHandler",
@@ -102,8 +106,45 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
 
 
             // Find the start time for this note
-            if let startTime = verovioService?.getNoteStartTime(noteId) {
-                midiPlayer?.seek(to: startTime)
+            if let noteStart = verovioService?.getNoteStartTime(noteId) {
+                // Map the note start to its containing measure's start time
+                let measureTimings = verovioService?.getMeasureTimings() ?? []
+
+                // Find the last measure whose time is <= noteStart
+                var measureStartTime: TimeInterval = noteStart
+                if !measureTimings.isEmpty {
+                    var chosen: TimeInterval? = nil
+                    for entry in measureTimings {
+                        let t = entry.time
+                        if t <= noteStart {
+                            chosen = t
+                        } else {
+                            break
+                        }
+                    }
+                    if let c = chosen {
+                        measureStartTime = c
+                    }
+
+                    // If the timing map appears to only include the first measure at time 0 (common when
+                    // Verovio doesn't emit explicit measure elements), fall back to estimating the
+                    // measure boundary using tempo and time signature.
+                    if measureTimings.count < 2 && measureStartTime == 0 && noteStart > 0 {
+                        let bpm = verovioService?.getTempoBPM() ?? 120.0
+                        // Prefer MIDI time signature if available
+                        let beatsPerMeasure = midiPlayer?.timeSignature.0 ?? metronome?.timeSignature.0 ?? 4
+                        let measureDuration = 60.0 / bpm * Double(beatsPerMeasure)
+                        let measureIndex = Int(noteStart / measureDuration)
+                        let estimated = Double(measureIndex) * measureDuration
+                        measureStartTime = estimated
+                    }
+                }
+
+                midiPlayer?.seek(to: measureStartTime)
+                // Also update metronome to the same position so they stay in sync
+                if let met = metronome {
+                    met.seek(to: measureStartTime)
+                }
             }
         }
     }
@@ -271,6 +312,7 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
     let isPlaying: Bool
     @EnvironmentObject var verovioService: VerovioService
     @EnvironmentObject var midiPlayer: MIDIPlayer
+    @ObservedObject var metronome: Metronome
 
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
@@ -292,6 +334,7 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
         // Store references in coordinator
         context.coordinator.verovioService = verovioService
         context.coordinator.midiPlayer = midiPlayer
+        context.coordinator.metronome = metronome
 
         // Only reload HTML if pages changed
         if context.coordinator.currentPages != svgPages {
@@ -322,6 +365,7 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
         var currentPages: [String] = []
         weak var verovioService: VerovioService?
         weak var midiPlayer: MIDIPlayer?
+        weak var metronome: Metronome?
 
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
             guard message.name == "noteClickHandler",
@@ -329,8 +373,34 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
 
 
             // Find the start time for this note
-            if let startTime = verovioService?.getNoteStartTime(noteId) {
-                midiPlayer?.seek(to: startTime)
+            if let noteStart = verovioService?.getNoteStartTime(noteId) {
+                // Map the note start to its containing measure's start time
+                let measureTimings = verovioService?.getMeasureTimings() ?? []
+
+                // Find the last measure whose time is <= noteStart
+                var measureStartTime: TimeInterval = noteStart
+                if !measureTimings.isEmpty {
+                    var chosen: TimeInterval? = nil
+                    for entry in measureTimings {
+                        let t = entry.time
+                        if t <= noteStart {
+                            chosen = t
+                        } else {
+                            break
+                        }
+                    }
+                    if let c = chosen {
+                        measureStartTime = c
+                    }
+                }
+
+                midiPlayer?.seek(to: measureStartTime)
+
+                // Also update metronome to the same position so they stay in sync
+                if let met = metronome {
+                    print("[SVG] Updating metronome to \(measureStartTime)")
+                    met.seek(to: measureStartTime)
+                }
             }
         }
     }

@@ -311,7 +311,6 @@ class VerovioService: ObservableObject {
 
         var measureTimings: [(Int, TimeInterval)] = []
         var currentMeasure = 1
-        var measureStartTime: TimeInterval = 0
 
         // Scan through timing events to find measure boundaries
         // Verovio timing data includes events with on/off arrays
@@ -324,15 +323,15 @@ class VerovioService: ObservableObject {
                 for id in onArray {
                     // Measure IDs typically start with "measure-" in MusicXML
                     if id.contains("measure") {
-                        measureTimings.append((currentMeasure, measureStartTime))
+                        // The current entry's timestamp represents the start of this measure
+                        measureTimings.append((currentMeasure, timeInSeconds))
                         currentMeasure += 1
-                        measureStartTime = timeInSeconds
                     }
                 }
             }
         }
 
-        // Add the first measure if we haven't found any
+        // Add the first measure at time 0 if we haven't found any
         if measureTimings.isEmpty {
             measureTimings.append((1, 0))
         }
