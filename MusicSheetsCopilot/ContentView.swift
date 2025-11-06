@@ -270,6 +270,69 @@ struct ContentView: View {
                             }
                         }
                         .help("Metronome Mode")
+
+                        // Subdivision selector (only show for counting mode) - iOS
+                        if metronome.mode == .counting {
+                            Menu {
+                                Button {
+                                    metronome.subdivisions = 1
+                                    if metronome.isTicking {
+                                        metronome.stop()
+                                        metronome.start()
+                                    }
+                                } label: {
+                                    HStack {
+                                        if metronome.subdivisions == 1 {
+                                            Image(systemName: "checkmark")
+                                        }
+                                        Text("Quarter Notes")
+                                    }
+                                }
+                                Button {
+                                    metronome.subdivisions = 2
+                                    if metronome.isTicking {
+                                        metronome.stop()
+                                        metronome.start()
+                                    }
+                                } label: {
+                                    HStack {
+                                        if metronome.subdivisions == 2 {
+                                            Image(systemName: "checkmark")
+                                        }
+                                        Text("Eighth Notes (+ and)")
+                                    }
+                                }
+                                Button {
+                                    metronome.subdivisions = 4
+                                    if metronome.isTicking {
+                                        metronome.stop()
+                                        metronome.start()
+                                    }
+                                } label: {
+                                    HStack {
+                                        if metronome.subdivisions == 4 {
+                                            Image(systemName: "checkmark")
+                                        }
+                                        Text("Sixteenth Notes (+ e and a)")
+                                    }
+                                }
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "divide.circle")
+                                    switch metronome.subdivisions {
+                                    case 1:
+                                        Text("♩")
+                                    case 2:
+                                        Text("♫")
+                                    case 4:
+                                        Text("♬")
+                                    default:
+                                        Text("♩")
+                                    }
+                                }
+                            }
+                            .help("Subdivision Level")
+                        }
                     }
 
                     Divider()
@@ -468,6 +531,69 @@ struct ContentView: View {
                             }
                         }
                         .help("Metronome Mode")
+
+                        // Subdivision selector (only show for counting mode) - macOS
+                        if metronome.mode == .counting {
+                            Menu {
+                                Button {
+                                    metronome.subdivisions = 1
+                                    if metronome.isTicking {
+                                        metronome.stop()
+                                        metronome.start()
+                                    }
+                                } label: {
+                                    HStack {
+                                        if metronome.subdivisions == 1 {
+                                            Image(systemName: "checkmark")
+                                        }
+                                        Text("Quarter Notes")
+                                    }
+                                }
+                                Button {
+                                    metronome.subdivisions = 2
+                                    if metronome.isTicking {
+                                        metronome.stop()
+                                        metronome.start()
+                                    }
+                                } label: {
+                                    HStack {
+                                        if metronome.subdivisions == 2 {
+                                            Image(systemName: "checkmark")
+                                        }
+                                        Text("Eighth Notes (+ and)")
+                                    }
+                                }
+                                Button {
+                                    metronome.subdivisions = 4
+                                    if metronome.isTicking {
+                                        metronome.stop()
+                                        metronome.start()
+                                    }
+                                } label: {
+                                    HStack {
+                                        if metronome.subdivisions == 4 {
+                                            Image(systemName: "checkmark")
+                                        }
+                                        Text("Sixteenth Notes (+ e and a)")
+                                    }
+                                }
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "divide.circle")
+                                    switch metronome.subdivisions {
+                                    case 1:
+                                        Text("♩")
+                                    case 2:
+                                        Text("♫")
+                                    case 4:
+                                        Text("♬")
+                                    default:
+                                        Text("♩")
+                                    }
+                                }
+                            }
+                            .help("Subdivision Level")
+                        }
                     }
 
                     Divider()

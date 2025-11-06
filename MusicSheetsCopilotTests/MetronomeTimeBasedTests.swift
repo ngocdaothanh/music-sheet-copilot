@@ -358,4 +358,183 @@ struct MetronomeTimeBasedTests {
 
         metronome.stop()
     }
+
+    @Test("Subdivision counting - eighth notes in metronome-only mode")
+    func subdivisionCountingEighthNotes() async {
+        let mockTime = MockTimeProvider()
+        let metronome = Metronome(timeProvider: mockTime)
+
+        metronome.bpm = 120.0  // 2 beats per second, 0.5s per beat
+        metronome.subdivisions = 2  // Eighth notes
+        metronome.timeSignature = (4, 4)
+        metronome.mode = .counting
+        metronome.isEnabled = true
+        metronome.start()
+
+        // Initial state: should be at beat 0, subdivision 0
+        #expect(metronome.currentBeat == 0)
+
+        // Advance 0.25 seconds (half a beat) - should be at beat 0, subdivision 1
+        mockTime.advance(by: 0.25)
+        try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+        #expect(metronome.currentBeat == 0)
+
+        // Advance another 0.25 seconds (full beat) - should be at beat 1, subdivision 0
+        mockTime.advance(by: 0.25)
+        try? await Task.sleep(nanoseconds: 10_000_000)
+        #expect(metronome.currentBeat == 1)
+
+        // Advance 0.25 seconds - should be at beat 1, subdivision 1
+        mockTime.advance(by: 0.25)
+        try? await Task.sleep(nanoseconds: 10_000_000)
+        #expect(metronome.currentBeat == 1)
+
+        metronome.stop()
+    }
+
+    @Test("Subdivision counting - sixteenth notes in metronome-only mode")
+    func subdivisionCountingSixteenthNotes() async {
+        let mockTime = MockTimeProvider()
+        let metronome = Metronome(timeProvider: mockTime)
+
+        metronome.bpm = 120.0  // 2 beats per second, 0.5s per beat
+        metronome.subdivisions = 4  // Sixteenth notes
+        metronome.timeSignature = (4, 4)
+        metronome.mode = .counting
+        metronome.isEnabled = true
+        metronome.start()
+
+        #expect(metronome.currentBeat == 0)
+
+        // Advance 0.125 seconds (1/4 of a beat) - subdivision 1
+        mockTime.advance(by: 0.125)
+        try? await Task.sleep(nanoseconds: 10_000_000)
+        #expect(metronome.currentBeat == 0)
+
+        // Advance 0.125 seconds - subdivision 2
+        mockTime.advance(by: 0.125)
+        try? await Task.sleep(nanoseconds: 10_000_000)
+        #expect(metronome.currentBeat == 0)
+
+        // Advance 0.125 seconds - subdivision 3
+        mockTime.advance(by: 0.125)
+        try? await Task.sleep(nanoseconds: 10_000_000)
+        #expect(metronome.currentBeat == 0)
+
+        // Advance 0.125 seconds - should wrap to beat 1, subdivision 0
+        mockTime.advance(by: 0.125)
+        try? await Task.sleep(nanoseconds: 10_000_000)
+        #expect(metronome.currentBeat == 1)
+
+        metronome.stop()
+    }
+
+    @Test("Subdivision counting syncs to MIDI position - eighth notes")
+    func subdivisionCountingSyncsToMIDIEighthNotes() async {
+        let mockTime = MockTimeProvider()
+        let metronome = Metronome(timeProvider: mockTime)
+        let midiPlayer = MIDIPlayer()
+
+        // MIDI is playing at 0.65 seconds = 1.3 beats
+        // At subdivisions=2: 2.6 subdivisions (beat 1, subdivision 0 with some progress)
+        midiPlayer.isPlaying = true
+        midiPlayer.currentTime = 0.65
+
+        metronome.midiPlayer = midiPlayer
+        metronome.bpm = 120.0  // 0.5s per beat
+        metronome.subdivisions = 2
+        metronome.timeSignature = (4, 4)
+        metronome.mode = .counting
+        metronome.isEnabled = true
+
+        metronome.start()
+
+        // Give more time for the metronome to initialize
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        // Should be at beat 1 (floor(0.65 / 0.5) = 1)
+        let currentBeat = await MainActor.run { metronome.currentBeat }
+        #expect(currentBeat == 1)
+
+        metronome.stop()
+    }
+
+    @Test("Subdivision counting syncs to MIDI position - sixteenth notes")
+    func subdivisionCountingSyncsToMIDISixteenthNotes() async {
+        let mockTime = MockTimeProvider()
+        let metronome = Metronome(timeProvider: mockTime)
+        let midiPlayer = MIDIPlayer()
+
+        // MIDI is playing at 0.625 seconds = 1.25 beats
+        // At subdivisions=4: 5 subdivisions (beat 1, subdivision 1)
+        midiPlayer.isPlaying = true
+        midiPlayer.currentTime = 0.625
+
+        metronome.midiPlayer = midiPlayer
+        metronome.bpm = 120.0  // 0.5s per beat
+        metronome.subdivisions = 4
+        metronome.timeSignature = (4, 4)
+        metronome.mode = .counting
+        metronome.isEnabled = true
+
+        metronome.start()
+
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Should be at beat 1 (floor(0.625 / 0.5) = 1)
+        let currentBeat = await MainActor.run { metronome.currentBeat }
+        #expect(currentBeat == 1)
+
+        metronome.stop()
+    }
+
+    @Test("Subdivision counting wraps correctly at measure boundary")
+    func subdivisionCountingWrapsAtMeasureBoundary() async {
+        let mockTime = MockTimeProvider()
+        let metronome = Metronome(timeProvider: mockTime)
+
+        metronome.bpm = 120.0  // 0.5s per beat
+        metronome.subdivisions = 2  // Eighth notes
+        metronome.timeSignature = (3, 4)  // 3/4 time
+        metronome.mode = .counting
+        metronome.isEnabled = true
+        metronome.start()
+
+        #expect(metronome.currentBeat == 0)
+
+        // Advance through all beats in 3/4 time with eighth notes
+        // Beat 0, subdivision 0 (start)
+
+        // Beat 0, subdivision 1
+        mockTime.advance(by: 0.25)
+        try? await Task.sleep(nanoseconds: 10_000_000)
+        #expect(metronome.currentBeat == 0)
+
+        // Beat 1, subdivision 0
+        mockTime.advance(by: 0.25)
+        try? await Task.sleep(nanoseconds: 10_000_000)
+        #expect(metronome.currentBeat == 1)
+
+        // Beat 1, subdivision 1
+        mockTime.advance(by: 0.25)
+        try? await Task.sleep(nanoseconds: 10_000_000)
+        #expect(metronome.currentBeat == 1)
+
+        // Beat 2, subdivision 0
+        mockTime.advance(by: 0.25)
+        try? await Task.sleep(nanoseconds: 10_000_000)
+        #expect(metronome.currentBeat == 2)
+
+        // Beat 2, subdivision 1
+        mockTime.advance(by: 0.25)
+        try? await Task.sleep(nanoseconds: 10_000_000)
+                #expect(metronome.currentBeat == 2)
+
+        // Should wrap back to beat 0 (3/4 time has only 3 beats)
+        mockTime.advance(by: 0.25)
+        try? await Task.sleep(nanoseconds: 10_000_000)
+        #expect(metronome.currentBeat == 0)
+
+        metronome.stop()
+    }
 }

@@ -20,10 +20,14 @@ class Metronome: ObservableObject {
     @Published var mode: MetronomeMode = .tick
     @Published var currentBeat: Int = 0  // Expose current beat position (0-indexed)
     @Published var currentTime: TimeInterval = 0  // Current playback time in metronome-only mode
+    @Published var subdivisions: Int = 1 {  // 1=quarter notes, 2=eighth notes, 4=sixteenth notes
+        didSet { updateTimer() }
+    }
 
     private var audioPlayer: AVAudioPlayer?
     private var timer: TimerProtocol?  // Changed from Timer? to TimerProtocol?
     private var tickCount: Int = 0
+    private var subdivisionCount: Int = 0  // Track position within a beat (0 to subdivisions-1)
     private var speechSynthesizer = AVSpeechSynthesizer()
 
     // For MIDI sync: track when we started and what the MIDI time was at start
@@ -171,6 +175,7 @@ class Metronome: ObservableObject {
         lastSpokenTime = -1
         lastSpokenNotes = []
         lastBeatTime = 0  // Reset beat timing
+        subdivisionCount = 0  // Reset subdivision tracking
 
         // Calculate initial beat position based on current playback time
         let initialTime: TimeInterval
@@ -197,13 +202,22 @@ class Metronome: ObservableObject {
         // When MIDI is playing, check if we're starting exactly on a beat boundary
         // If so, play an immediate tick; otherwise wait for the next beat
         let shouldPlayImmediate: Bool
+        let initialSubdivision: Int
         if midiPlayer?.isPlaying == true {
-            // Check if we're very close to a beat boundary (within 50ms tolerance)
+            // Check if we're very close to a beat/subdivision boundary (within 50ms tolerance)
+            let subdivisionDuration = beatDuration / Double(subdivisions)
+            let timeIntoSubdivision = initialTime.truncatingRemainder(dividingBy: subdivisionDuration)
+            shouldPlayImmediate = timeIntoSubdivision < 0.05  // Within 50ms of subdivision start
+
+            // Calculate which subdivision within the beat we're on
             let timeIntoBeat = initialTime.truncatingRemainder(dividingBy: beatDuration)
-            shouldPlayImmediate = timeIntoBeat < 0.05  // Within 50ms of beat start
+            initialSubdivision = Int(timeIntoBeat / subdivisionDuration) % subdivisions
+            subdivisionCount = initialSubdivision
         } else {
             // Metronome-only mode: always play immediate tick
             shouldPlayImmediate = true
+            initialSubdivision = 0
+            subdivisionCount = 0
         }
 
         if shouldPlayImmediate {
@@ -216,12 +230,18 @@ class Metronome: ObservableObject {
                     tickCount = 0
                 }
             } else if mode == .counting {
-                speakCount()
-                tickCount += 1
-                currentBeat = tickCount
-                if tickCount >= timeSignature.0 {
-                    tickCount = 0
-                    currentBeat = 0
+                speakCount(subdivisionIndex: initialSubdivision)
+
+                // Advance subdivision
+                subdivisionCount += 1
+                if subdivisionCount >= subdivisions {
+                    subdivisionCount = 0
+                    tickCount += 1
+                    currentBeat = tickCount
+                    if tickCount >= timeSignature.0 {
+                        tickCount = 0
+                        currentBeat = 0
+                    }
                 }
             } else if mode == .solfege {
                 if !noteEvents.isEmpty {
@@ -241,6 +261,7 @@ class Metronome: ObservableObject {
         timer = nil
         lastSpokenTime = -1
         lastSpokenNotes = []
+        subdivisionCount = 0  // Reset subdivision tracking
         metronomeStartTime = nil
         metronomePausedTime = 0
         midiSyncStartTime = nil
@@ -296,6 +317,9 @@ class Metronome: ObservableObject {
         } else if mode == .solfege {
             // Solfege mode also checks frequently to catch note events
             interval = 0.05
+        } else if mode == .counting && subdivisions > 1 {
+            // Counting mode with subdivisions: tick at subdivision intervals
+            interval = 60.0 / (adjustedBPM * Double(subdivisions))
         } else {
             // Metronome-only mode: tick at beat intervals
             interval = 60.0 / adjustedBPM
@@ -379,32 +403,54 @@ class Metronome: ObservableObject {
                 speakNotesAtMetronomeTime()
             }
         case .counting:
-            // When MIDI is playing, check if we're actually on a beat boundary
+            // When MIDI is playing, check if we're actually on a beat or subdivision boundary
             if let player = midiPlayer, player.isPlaying,
                midiSyncStartTime != nil {
                 let currentMIDITime = player.currentTime
                 let beatDuration = 60.0 / bpm
-                let currentBeatIndex = Int(currentMIDITime / beatDuration) % timeSignature.0
+                let subdivisionDuration = beatDuration / Double(subdivisions)
 
-                // Only count if we've actually moved to a new beat
-                if currentBeatIndex != currentBeat {
+                // Calculate current subdivision index (across all beats)
+                let totalSubdivisionIndex = Int(currentMIDITime / subdivisionDuration)
+                let currentBeatIndex = totalSubdivisionIndex / subdivisions % timeSignature.0
+                let currentSubdivisionIndex = totalSubdivisionIndex % subdivisions
+
+                // Track the last subdivision we counted to avoid duplicate counts
+                let lastTotalSubdivision = currentBeat * subdivisions + subdivisionCount
+
+                // Only count if we've moved to a new subdivision
+                if totalSubdivisionIndex != lastTotalSubdivision {
                     currentBeat = currentBeatIndex
                     tickCount = currentBeatIndex
-                    speakCount()
-                    tickCount += 1
-                    currentBeat = tickCount
-                    if tickCount >= timeSignature.0 {
-                        tickCount = 0
-                        currentBeat = 0
+                    subdivisionCount = currentSubdivisionIndex
+
+                    speakCount(subdivisionIndex: currentSubdivisionIndex)
+
+                    // Update for next subdivision
+                    if subdivisions == 1 {
+                        // Quarter notes: advance beat
+                        tickCount += 1
+                        currentBeat = tickCount
+                        if tickCount >= timeSignature.0 {
+                            tickCount = 0
+                            currentBeat = 0
+                        }
                     }
+                    // For subdivisions > 1, beat advances are handled by the subdivision tracking
                 }
             } else {
                 // Metronome-only mode: count on every timer fire
                 currentBeat = tickCount
-                speakCount()
-                tickCount += 1
-                if tickCount >= timeSignature.0 {
-                    tickCount = 0
+                speakCount(subdivisionIndex: subdivisionCount)
+
+                // Advance subdivision
+                subdivisionCount += 1
+                if subdivisionCount >= subdivisions {
+                    subdivisionCount = 0
+                    tickCount += 1
+                    if tickCount >= timeSignature.0 {
+                        tickCount = 0
+                    }
                 }
             }
         }
@@ -530,15 +576,48 @@ class Metronome: ObservableObject {
         }
     }
 
-    private func speakCount() {
-        // Speak the beat number (1, 2, 3, 4...)
-        let beatNumber = tickCount + 1
-        let numberWords = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight",
-                          "Nine", "Ten", "Eleven", "Twelve"]
+    private func speakCount(subdivisionIndex: Int = 0) {
+        let text: String
 
-        guard beatNumber <= numberWords.count else { return }
+        if subdivisions == 1 {
+            // Quarter notes: traditional counting (1, 2, 3, 4...)
+            let beatNumber = tickCount + 1
+            let numberWords = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight",
+                              "Nine", "Ten", "Eleven", "Twelve"]
+            guard beatNumber <= numberWords.count else { return }
+            text = numberWords[beatNumber - 1]
+        } else if subdivisions == 2 {
+            // Eighth notes: 1 and 2 and 3 and...
+            if subdivisionIndex == 0 {
+                let beatNumber = tickCount + 1
+                let numberWords = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight",
+                                  "Nine", "Ten", "Eleven", "Twelve"]
+                guard beatNumber <= numberWords.count else { return }
+                text = numberWords[beatNumber - 1]
+            } else {
+                text = "and"
+            }
+        } else if subdivisions == 4 {
+            // Sixteenth notes: 1 e and a 2 e and a...
+            if subdivisionIndex == 0 {
+                let beatNumber = tickCount + 1
+                let numberWords = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight",
+                                  "Nine", "Ten", "Eleven", "Twelve"]
+                guard beatNumber <= numberWords.count else { return }
+                text = numberWords[beatNumber - 1]
+            } else if subdivisionIndex == 1 {
+                text = "e"
+            } else if subdivisionIndex == 2 {
+                text = "and"
+            } else {
+                text = "a"
+            }
+        } else {
+            // Unsupported subdivision count
+            return
+        }
 
-        let utterance = AVSpeechUtterance(string: numberWords[beatNumber - 1])
+        let utterance = AVSpeechUtterance(string: text)
         utterance.rate = 0.55
         utterance.volume = 1.0
         utterance.pitchMultiplier = 1.0
