@@ -20,12 +20,6 @@ struct MultiPageSVGMusicSheetView: View {
                 .frame(maxWidth: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .toolbar {
-            ToolbarItemGroup {
-                Text("\(svgPages.count) page\(svgPages.count == 1 ? "" : "s")")
-                    .foregroundColor(.secondary)
-            }
-        }
     }
 }
 
