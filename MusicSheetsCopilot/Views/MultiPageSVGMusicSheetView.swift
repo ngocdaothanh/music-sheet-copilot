@@ -353,6 +353,13 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
             <style>
+                * {
+                    box-sizing: border-box;
+                }
+                html, body {
+                    width: 100%;
+                    overflow-x: hidden;
+                }
                 body {
                     margin: 0;
                     padding: 20px;
@@ -368,6 +375,7 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
                     align-items: center;
                     gap: 10px;
                     width: 100%;
+                    max-width: 100%;
                 }
                 .page-label {
                     font-family: -apple-system, BlinkMacSystemFont, sans-serif;
@@ -376,8 +384,9 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
                     margin-bottom: 5px;
                 }
                 svg {
-                    width: 100%;
-                    height: auto;
+                    width: 100% !important;
+                    height: auto !important;
+                    max-width: 100%;
                     display: block;
                 }
                 .highlighted-note {
