@@ -9,7 +9,6 @@ import Combine
 struct ContentView: View {
     @State private var svgPages: [String]?
     @State private var timingData: String?
-    @State private var documentTitle: String = "Music Sheets"
     @State private var isImporting = false
     @State private var errorMessage: String?
     @StateObject private var midiPlayer = MIDIPlayer()
@@ -144,7 +143,6 @@ struct ContentView: View {
                     metronome.timeSignature = newTimeSignature
                 }
         }
-        .navigationTitle(documentTitle)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -785,11 +783,6 @@ struct ContentView: View {
             } else {
                 print("Warning: Failed to decode base64 MIDI string (length: \(midiString.count))")
             }
-
-            // Extract title from filename if needed
-            documentTitle = url.deletingPathExtension().lastPathComponent
-                .replacingOccurrences(of: "_", with: " ")
-                .capitalized
 
         } catch {
             errorMessage = "Failed to render MusicXML: \(error.localizedDescription)"

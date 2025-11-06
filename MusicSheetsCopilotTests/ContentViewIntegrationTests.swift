@@ -75,20 +75,6 @@ struct ContentViewIntegrationTests {
         #expect(fileExtension == "xml")
     }
 
-    // MARK: - Document Title Extraction Tests
-
-    @Test("Document title extraction from filename",
-          arguments: [
-        ("twinkle_twinkle", "Twinkle Twinkle"),
-        ("fur_elise", "Fur Elise"),
-        ("my_music_file", "My Music File"),
-        ("SONG_NAME", "Song Name"),
-    ])
-    func documentTitleFormatting(filename: String, expectedTitle: String) {
-        let title = filename.replacingOccurrences(of: "_", with: " ").capitalized
-        #expect(title == expectedTitle)
-    }
-
     // MARK: - Time Signature Tests
 
     @Test("Default time signature is 4/4")
