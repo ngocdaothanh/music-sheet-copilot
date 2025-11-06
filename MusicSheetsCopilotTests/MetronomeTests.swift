@@ -12,13 +12,13 @@ struct MetronomeTests {
         let metronome = Metronome()
 
         // Test middle C octave (MIDI notes 60-71)
-        #expect(metronome.midiNoteToSolfege(60) == "Do")   // C
-        #expect(metronome.midiNoteToSolfege(62) == "Re")   // D
-        #expect(metronome.midiNoteToSolfege(64) == "Mi")   // E
-        #expect(metronome.midiNoteToSolfege(65) == "Fa")   // F
-        #expect(metronome.midiNoteToSolfege(67) == "Sol")  // G
-        #expect(metronome.midiNoteToSolfege(69) == "La")   // A
-        #expect(metronome.midiNoteToSolfege(71) == "Si")   // B
+        #expect(metronome.midiNoteToSolfege(60) == "Doh")   // C
+        #expect(metronome.midiNoteToSolfege(62) == "Reh")   // D
+        #expect(metronome.midiNoteToSolfege(64) == "Mee")   // E
+        #expect(metronome.midiNoteToSolfege(65) == "Fa")    // F
+        #expect(metronome.midiNoteToSolfege(67) == "Sol")   // G
+        #expect(metronome.midiNoteToSolfege(69) == "La")    // A
+        #expect(metronome.midiNoteToSolfege(71) == "Si")    // B
     }
 
     @Test("MIDI note to solfege - Chromatic notes map to natural notes")
@@ -26,21 +26,21 @@ struct MetronomeTests {
         let metronome = Metronome()
 
         // Sharps/flats should map to the same solfege as natural notes
-        #expect(metronome.midiNoteToSolfege(61) == "Do")   // C# -> Do
-        #expect(metronome.midiNoteToSolfege(63) == "Re")   // D# -> Re
-        #expect(metronome.midiNoteToSolfege(66) == "Fa")   // F# -> Fa
-        #expect(metronome.midiNoteToSolfege(68) == "Sol")  // G# -> Sol
-        #expect(metronome.midiNoteToSolfege(70) == "La")   // A# -> La
+        #expect(metronome.midiNoteToSolfege(61) == "Doh")   // C# -> Doh
+        #expect(metronome.midiNoteToSolfege(63) == "Reh")   // D# -> Reh
+        #expect(metronome.midiNoteToSolfege(66) == "Fa")    // F# -> Fa
+        #expect(metronome.midiNoteToSolfege(68) == "Sol")   // G# -> Sol
+        #expect(metronome.midiNoteToSolfege(70) == "La")    // A# -> La
     }
 
     @Test("MIDI note to solfege - Octaves wrap correctly",
           arguments: [
-        (48, "Do"),   // C in lower octave
-        (60, "Do"),   // Middle C
-        (72, "Do"),   // C in higher octave
-        (84, "Do"),   // C in even higher octave
-        (50, "Re"),   // D in lower octave
-        (74, "Re"),   // D in higher octave
+        (48, "Doh"),   // C in lower octave
+        (60, "Doh"),   // Middle C
+        (72, "Doh"),   // C in higher octave
+        (84, "Doh"),   // C in even higher octave
+        (50, "Reh"),   // D in lower octave
+        (74, "Reh"),   // D in higher octave
     ])
     func midiNoteToSolfegeOctaves(midiNote: UInt8, expectedSolfege: String) {
         let metronome = Metronome()
@@ -180,8 +180,8 @@ struct MetronomeTests {
 
         // MIDI note 0 (C-1)
         let result = metronome.midiNoteToSolfege(0)
-        // 0 % 12 = 0, which should map to Do
-        #expect(result == "Do")
+        // 0 % 12 = 0, which should map to Doh
+        #expect(result == "Doh")
     }
 
     @Test("Beat duration with zero BPM should not cause division by zero")
