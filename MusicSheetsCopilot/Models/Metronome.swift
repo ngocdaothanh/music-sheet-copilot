@@ -83,8 +83,8 @@ class Metronome: ObservableObject {
         self.noteEvents = events
         // Cache the first staff's channel (lowest channel number)
         self.firstStaffChannel = events.map { $0.channel }.min() ?? 0
-        // Calculate total duration from the last note event (add a small buffer for the last note to ring)
-        self.totalDuration = (events.map { $0.time }.max() ?? 0) + 0.5
+        // Calculate total duration from the last note event (add a 2.0 second buffer for the last note to ring)
+        self.totalDuration = (events.map { $0.time }.max() ?? 0) + 2.0
     }
 
     /// Get current playback time in metronome-only mode
@@ -335,14 +335,17 @@ class Metronome: ObservableObject {
     private func tick() {
         // Check if we've reached the end of the piece
         if let player = midiPlayer, player.isPlaying {
-            // When MIDI is playing, check if we're near the end
-            // Stop a bit early to avoid extra beats after the song finishes
-            if player.currentTime >= player.duration - 0.1 {
+            // When MIDI is playing, only auto-stop if the player's duration is known (> 0)
+            // and we're within a small epsilon of the end. This avoids treating a zero
+            // duration (the default in tests/mocks) as 'already finished'.
+            let epsilon: TimeInterval = 0.1
+            if player.duration > 0 && player.currentTime >= player.duration - epsilon {
                 stop()
                 return
             }
-        } else if totalDuration > 0 {
-            // Metronome-only mode: check against total duration
+            // Do NOT auto-stop in metronome-only mode if MIDI is playing
+        } else if (midiPlayer == nil || midiPlayer?.isPlaying == false) && totalDuration > 0 {
+            // Metronome-only mode: check against total duration ONLY if MIDI is not playing
             let currentMetronomeTime = getCurrentMetronomeTime()
             if currentMetronomeTime >= totalDuration {
                 // Reached the end - stop playback
