@@ -320,10 +320,7 @@ struct ContentView: View {
                                 }
                             }
                         } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "music.note.list")
-                                Text("\(verovioService.enabledStaves.count)/\(verovioService.availableStaves.count)")
-                            }
+                            Image(systemName: "music.note.list")
                         }
                         .help("Select Staves")
 
@@ -345,10 +342,7 @@ struct ContentView: View {
                                 }
                             }
                         } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "music.note.list")
-                                Text("\(verovioService.enabledPartIds.count)/\(verovioService.availableParts.count)")
-                            }
+                            Image(systemName: "music.note.list")
                         }
                         .help("Select Parts")
 
@@ -524,10 +518,7 @@ struct ContentView: View {
                                 }
                             }
                         } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "music.note.list")
-                                Text("\(verovioService.enabledStaves.count)/\(verovioService.availableStaves.count)")
-                            }
+                            Image(systemName: "music.note.list")
                         }
                         .help("Select Staves")
 
@@ -549,10 +540,7 @@ struct ContentView: View {
                                 }
                             }
                         } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "music.note.list")
-                                Text("\(verovioService.enabledPartIds.count)/\(verovioService.availableParts.count)")
-                            }
+                            Image(systemName: "music.note.list")
                         }
                         .help("Select Parts")
 
