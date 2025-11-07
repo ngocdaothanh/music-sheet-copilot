@@ -102,12 +102,11 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
         weak var metronome: Metronome?
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
             if message.name == "noteClickHandler", let noteId = message.body as? String {
-
+                print("[DEBUG] noteClickHandler received noteId: \(noteId)")
                 // Find the start time for this note
                 if let noteStart = verovioService?.getNoteStartTime(noteId) {
                     // Map the note start to its containing measure's start time
                     let measureTimings = verovioService?.getMeasureTimings() ?? []
-
                     // Find the last measure whose time is <= noteStart
                     var measureStartTime: TimeInterval = noteStart
                     if !measureTimings.isEmpty {
@@ -124,7 +123,7 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                             measureStartTime = c
                         }
                     }
-
+                    print("[DEBUG] Seeking to measureStartTime: \(measureStartTime) for noteId: \(noteId)")
                     // Save state before seek
                     let wasMIDIPlaying = midiPlayer?.isPlaying ?? false
                     midiPlayer?.seek(to: measureStartTime)
@@ -138,18 +137,17 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                         }
                     }
                 }
-
             } else if message.name == "measureClickHandler" {
-                // Body may be Int, Double or String representing measure number
+                print("[DEBUG] measureClickHandler received body: \(message.body)")
                 var measureNum: Int? = nil
                 if let i = message.body as? Int { measureNum = i }
                 else if let d = message.body as? Double { measureNum = Int(d) }
                 else if let s = message.body as? String, let i = Int(s) { measureNum = i }
-
-                guard let mNum = measureNum else { return }
-
+                print("[DEBUG] Parsed measureNum: \(String(describing: measureNum)) from message.body: \(message.body)")
+                guard let mNum = measureNum else { print("[DEBUG] measureNum is nil, aborting"); return }
                 // Find measure start time via VerovioService
                 if let measureStart = verovioService?.getMeasureStartTime(mNum) {
+                    print("[DEBUG] Seeking to measureStart: \(measureStart) for measureNum: \(mNum)")
                     let wasMIDIPlaying = midiPlayer?.isPlaying ?? false
                     midiPlayer?.seek(to: measureStart)
                     if wasMIDIPlaying {
@@ -169,11 +167,16 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                             return false
                         }), let tstamp = first["tstamp"] as? Double {
                             let time = tstamp / 1000.0
+                            print("[DEBUG] Fallback: Seeking to tstamp: \(time) for measureNum: \(mNum)")
                             let wasPlaying = midiPlayer?.isPlaying ?? false
                             midiPlayer?.seek(to: time)
                             if wasPlaying { midiPlayer?.play() }
                             if let met = metronome { met.seek(to: time); if wasPlaying && met.isEnabled { met.start() } }
+                        } else {
+                            print("[DEBUG] Could not find timing entry for measureNum: \(mNum)")
                         }
+                    } else {
+                        print("[DEBUG] Could not parse timing map JSON for measureNum: \(mNum)")
                     }
                 }
             }
@@ -184,7 +187,7 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
         let svgContent = svgPages.enumerated().map { index, svg in
             let pageLabel = svgPages.count > 1 ? "<div class=\"page-label\">Page \(index + 1)</div>" : ""
             return """
-            <div class="page">
+            <div class=\"page\">
                 \(pageLabel)
                 \(svg)
             </div>
@@ -195,8 +198,8 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
         <!DOCTYPE html>
         <html>
         <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <meta charset=\"utf-8\">
+            <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
             <style>
                 body {
                     margin: 0;
@@ -235,55 +238,44 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                 const timingData = \(timingData);
                 let currentHighlightedElements = [];
 
-                console.log('Timing data:', timingData);
-                console.log('Type:', typeof timingData, 'Array?', Array.isArray(timingData));
-
                 function updatePlaybackHighlight(timeMs) {
+                    console.log("updatePlaybackHighlight called with time:", timeMs);
                     clearPlaybackHighlight();
 
-                    console.log('Highlighting at time:', timeMs);
-
-                    // Find all notes that should be highlighted at current time
+                    // Find all notes that should be active at current time
                     if (!timingData || !Array.isArray(timingData)) {
-                        console.log('No valid timing data');
+                        console.log("No timing data available");
                         return;
                     }
 
-                    let highlightCount = 0;
-
-                    // Verovio timing data structure:
-                    // Each entry has: tstamp (timestamp in ms), on (array of IDs turning on), off (array of IDs turning off)
-                    // We need to track which notes are currently active
-                    let currentIndex = 0;
+                    // Build set of currently active note IDs
                     const activeNotes = new Set();
 
-                    // Process all timing entries up to current time
-                    for (let i = 0; i < timingData.length; i++) {
-                        const entry = timingData[i];
-                        if (entry.tstamp > timeMs) break;
+                    for (const entry of timingData) {
+                        if (entry.tstamp > timeMs) break; // Stop when we reach future events
 
-                        // Add notes that turn on
-                        if (entry.on) {
+                        // Add notes that start at this event
+                        if (entry.on && Array.isArray(entry.on)) {
                             entry.on.forEach(id => activeNotes.add(id));
                         }
 
-                        // Remove notes that turn off
-                        if (entry.off) {
+                        // Remove notes that end at this event
+                        if (entry.off && Array.isArray(entry.off)) {
                             entry.off.forEach(id => activeNotes.delete(id));
                         }
                     }
 
-                    // Highlight all active notes
-                    activeNotes.forEach(id => {
-                        const elements = document.querySelectorAll(`[*|id="${id}"]`);
+                    console.log("Active notes:", Array.from(activeNotes));
+
+                    // Highlight all currently active notes
+                    activeNotes.forEach(noteId => {
+                        const elements = document.querySelectorAll(`[*|id=\"${noteId}\"]`);
+                        console.log(`Found ${elements.length} elements for note ${noteId}`);
                         elements.forEach(el => {
                             el.classList.add('highlighted-note');
                             currentHighlightedElements.push(el);
-                            highlightCount++;
                         });
                     });
-
-                    console.log(`Highlighted ${highlightCount} elements from ${activeNotes.size} active notes`);
                 }
 
                 function clearPlaybackHighlight() {
@@ -297,12 +289,7 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                 window.addEventListener('load', function() {
                     console.log('Setting up click handlers for notes');
 
-                    // Find all note elements and make them clickable
-                    // Verovio notes typically have class 'note' or are within elements with timing data
-                    const noteElements = document.querySelectorAll('.note, [class*="note"]');
-                    console.log(`Found ${noteElements.length} note elements`);
-
-                    // Also add handlers for all elements that have IDs in our timing data
+                    // Add handlers for all elements that have IDs in our timing data
                     if (timingData && Array.isArray(timingData)) {
                         const allNoteIds = new Set();
                         timingData.forEach(entry => {
@@ -314,7 +301,7 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                         console.log(`Found ${allNoteIds.size} unique note IDs in timing data`);
 
                         allNoteIds.forEach(noteId => {
-                            const elements = document.querySelectorAll(`[*|id="${noteId}"]`);
+                            const elements = document.querySelectorAll(`[*|id=\"${noteId}\"]`);
                             elements.forEach(el => {
                                 el.style.cursor = 'pointer';
                                 el.addEventListener('click', function(e) {
@@ -324,23 +311,34 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                                 });
                             });
                         });
-
-                        // Create clickable overlays for measures: find measure groups and insert a transparent rect
+                        // Create clickable overlays for measures
                         const measureGroups = document.querySelectorAll('g.measure, g[class*="measure"], g[id*="measure"], [id^="measure-"]');
+                        console.log(`[DEBUG] Found ${measureGroups.length} measure groups for overlays`);
                         measureGroups.forEach((g, idx) => {
                             let bbox = null;
                             try { bbox = g.getBBox(); } catch (e) { bbox = null; }
                             if (bbox && bbox.width > 0 && bbox.height > 0) {
-                                // Try to infer measure number from id or class if available
+                                // Robustly extract measure number from id/class attributes (e.g., 'measure-1', 'measure-P1-3', etc.)
                                 let measureNumber = null;
                                 try {
                                     const id = g.id || '';
                                     const cls = g.getAttribute && g.getAttribute('class') || '';
-                                    const combined = id + ' ' + cls;
-                                    const match = combined.match(/(\\d+)/);
-                                    if (match) measureNumber = parseInt(match[0]);
+                                    // Try to match 'measure-<number>' or 'measure-Px-<number>'
+                                    let match = id.match(/measure-(?:[A-Za-z0-9]+-)?(\\d+)/);
+                                    if (!match) match = cls.match(/measure-(?:[A-Za-z0-9]+-)?(\\d+)/);
+                                    if (match) measureNumber = parseInt(match[1]);
+                                    // Fallback: look for <text> child with a number (rare)
+                                    if (!measureNumber) {
+                                        const texts = g.getElementsByTagName('text');
+                                        for (let t of texts) {
+                                            const n = parseInt(t.textContent);
+                                            if (!isNaN(n)) { measureNumber = n; break; }
+                                        }
+                                    }
+                                    // Final fallback: use overlay index (may be wrong for multi-staff)
+                                    if (!measureNumber) measureNumber = idx + 1;
+                                    console.log(`[DEBUG] Measure overlay idx=${idx} id='${id}' class='${cls}' extracted measureNumber=`, measureNumber);
                                 } catch(e) { measureNumber = null }
-                                if (!measureNumber) measureNumber = idx + 1;
                                 const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
                                 rect.setAttribute('x', bbox.x);
                                 rect.setAttribute('y', bbox.y);
@@ -353,6 +351,8 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                                 rect.addEventListener('mouseenter', function() { rect.setAttribute('opacity', '0.12'); });
                                 rect.addEventListener('mouseleave', function() { rect.setAttribute('opacity', '0.0'); });
                                 g.insertBefore(rect, g.firstChild);
+                            } else {
+                                console.log(`[DEBUG] Skipping measure overlay idx=${idx} (no bbox or zero size)`);
                             }
                         });
                     }
