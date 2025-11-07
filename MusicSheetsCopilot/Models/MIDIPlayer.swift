@@ -7,7 +7,7 @@ class MIDIPlayer: ObservableObject {
     @Published var isPlaying = false
     @Published var currentTime: TimeInterval = 0
     @Published var duration: TimeInterval = 0
-    @Published var playbackRate: Float = 1.0 {
+    @Published var playbackRate: Float = 0.5 {
         didSet {
             midiPlayer?.rate = playbackRate
         }
