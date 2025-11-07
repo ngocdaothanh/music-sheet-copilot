@@ -204,12 +204,10 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                 let currentHighlightedElements = [];
 
                 function updatePlaybackHighlight(timeMs) {
-                    console.log("updatePlaybackHighlight called with time:", timeMs);
                     clearPlaybackHighlight();
 
                     // Find all notes that should be active at current time
                     if (!timingData || !Array.isArray(timingData)) {
-                        console.log("No timing data available");
                         return;
                     }
 
@@ -230,12 +228,10 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                         }
                     }
 
-                    console.log("Active notes:", Array.from(activeNotes));
 
                     // Highlight all currently active notes
                     activeNotes.forEach(noteId => {
                         const elements = document.querySelectorAll(`[*|id=\"${noteId}\"]`);
-                        console.log(`Found ${elements.length} elements for note ${noteId}`);
                         elements.forEach(el => {
                             el.classList.add('highlighted-note');
                             currentHighlightedElements.push(el);
@@ -252,7 +248,6 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
 
                 // Initialize click handlers when page loads
                 window.addEventListener('load', function() {
-                    console.log('Setting up click handlers for notes');
 
                     // Add handlers for all elements that have IDs in our timing data
                     if (timingData && Array.isArray(timingData)) {
@@ -263,22 +258,19 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                             }
                         });
 
-                        console.log(`Found ${allNoteIds.size} unique note IDs in timing data`);
-
                         allNoteIds.forEach(noteId => {
                             const elements = document.querySelectorAll(`[*|id=\"${noteId}\"]`);
                             elements.forEach(el => {
                                 el.style.cursor = 'pointer';
                                 el.addEventListener('click', function(e) {
                                     e.stopPropagation();
-                                    console.log('Clicked note:', noteId);
                                     window.webkit.messageHandlers.noteClickHandler.postMessage(noteId);
                                 });
                             });
                         });
+
                         // Create clickable overlays for measures
                         const measureGroups = document.querySelectorAll('g.measure, g[class*="measure"], g[id*="measure"], [id^="measure-"]');
-                        console.log(`[DEBUG] Found ${measureGroups.length} measure groups for overlays`);
                         measureGroups.forEach((g, idx) => {
                             let bbox = null;
                             try { bbox = g.getBBox(); } catch (e) { bbox = null; }
@@ -302,7 +294,6 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                                     }
                                     // Final fallback: use overlay index (may be wrong for multi-staff)
                                     if (!measureNumber) measureNumber = idx + 1;
-                                    console.log(`[DEBUG] Measure overlay idx=${idx} id='${id}' class='${cls}' extracted measureNumber=`, measureNumber);
                                 } catch(e) { measureNumber = null }
                                 const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
                                 rect.setAttribute('x', bbox.x);
@@ -336,8 +327,6 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                                 rect.addEventListener('mouseenter', function() { rect.setAttribute('opacity', '0.12'); });
                                 rect.addEventListener('mouseleave', function() { rect.setAttribute('opacity', '0.0'); });
                                 g.insertBefore(rect, g.firstChild);
-                            } else {
-                                console.log(`[DEBUG] Skipping measure overlay idx=${idx} (no bbox or zero size)`);
                             }
                         });
                     }
