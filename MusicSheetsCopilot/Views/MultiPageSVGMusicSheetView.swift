@@ -57,6 +57,7 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
     func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         config.userContentController.add(context.coordinator, name: "noteClickHandler")
+        config.userContentController.add(context.coordinator, name: "measureClickHandler")
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.setValue(false, forKey: "drawsBackground")
         return webView
@@ -99,51 +100,81 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
         weak var verovioService: VerovioService?
         weak var midiPlayer: MIDIPlayer?
         weak var metronome: Metronome?
-
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-            guard message.name == "noteClickHandler",
-                  let noteId = message.body as? String else { return }
+            if message.name == "noteClickHandler", let noteId = message.body as? String {
 
+                // Find the start time for this note
+                if let noteStart = verovioService?.getNoteStartTime(noteId) {
+                    // Map the note start to its containing measure's start time
+                    let measureTimings = verovioService?.getMeasureTimings() ?? []
 
-            // Find the start time for this note
-            if let noteStart = verovioService?.getNoteStartTime(noteId) {
-                // Map the note start to its containing measure's start time
-                let measureTimings = verovioService?.getMeasureTimings() ?? []
-
-                // Find the last measure whose time is <= noteStart
-                var measureStartTime: TimeInterval = noteStart
-                if !measureTimings.isEmpty {
-                    var chosen: TimeInterval? = nil
-                    for entry in measureTimings {
-                        let t = entry.time
-                        if t <= noteStart {
-                            chosen = t
-                        } else {
-                            break
+                    // Find the last measure whose time is <= noteStart
+                    var measureStartTime: TimeInterval = noteStart
+                    if !measureTimings.isEmpty {
+                        var chosen: TimeInterval? = nil
+                        for entry in measureTimings {
+                            let t = entry.time
+                            if t <= noteStart {
+                                chosen = t
+                            } else {
+                                break
+                            }
+                        }
+                        if let c = chosen {
+                            measureStartTime = c
                         }
                     }
-                    if let c = chosen {
-                        measureStartTime = c
-                    }
 
-                    // If the timing map appears to only include the first measure at time 0 (common when
-                    // Verovio doesn't emit explicit measure elements), fall back to estimating the
-                    // measure boundary using tempo and time signature.
-                    if measureTimings.count < 2 && measureStartTime == 0 && noteStart > 0 {
-                        let bpm = verovioService?.getTempoBPM() ?? 120.0
-                        // Prefer MIDI time signature if available
-                        let beatsPerMeasure = midiPlayer?.timeSignature.0 ?? metronome?.timeSignature.0 ?? 4
-                        let measureDuration = 60.0 / bpm * Double(beatsPerMeasure)
-                        let measureIndex = Int(noteStart / measureDuration)
-                        let estimated = Double(measureIndex) * measureDuration
-                        measureStartTime = estimated
+                    // Save state before seek
+                    let wasMIDIPlaying = midiPlayer?.isPlaying ?? false
+                    midiPlayer?.seek(to: measureStartTime)
+                    if wasMIDIPlaying {
+                        midiPlayer?.play()
+                    }
+                    if let met = metronome {
+                        met.seek(to: measureStartTime)
+                        if wasMIDIPlaying && met.isEnabled {
+                            met.start()
+                        }
                     }
                 }
 
-                midiPlayer?.seek(to: measureStartTime)
-                // Also update metronome to the same position so they stay in sync
-                if let met = metronome {
-                    met.seek(to: measureStartTime)
+            } else if message.name == "measureClickHandler" {
+                // Body may be Int, Double or String representing measure number
+                var measureNum: Int? = nil
+                if let i = message.body as? Int { measureNum = i }
+                else if let d = message.body as? Double { measureNum = Int(d) }
+                else if let s = message.body as? String, let i = Int(s) { measureNum = i }
+
+                guard let mNum = measureNum else { return }
+
+                // Find measure start time via VerovioService
+                if let measureStart = verovioService?.getMeasureStartTime(mNum) {
+                    let wasMIDIPlaying = midiPlayer?.isPlaying ?? false
+                    midiPlayer?.seek(to: measureStart)
+                    if wasMIDIPlaying {
+                        midiPlayer?.play()
+                    }
+                    if let met = metronome {
+                        met.seek(to: measureStart)
+                        if wasMIDIPlaying && met.isEnabled { met.start() }
+                    }
+                } else {
+                    // As a fallback, try to find first note in timing map for this measure
+                    if let timingMapJSON = verovioService?.getTimingMap().data(using: .utf8),
+                       let arr = try? JSONSerialization.jsonObject(with: timingMapJSON) as? [[String: Any]] {
+                        if let first = arr.first(where: { entry in
+                            if let measure = entry["measure"] as? Int { return measure == mNum }
+                            if let measureStr = entry["measure"] as? String, let mi = Int(measureStr) { return mi == mNum }
+                            return false
+                        }), let tstamp = first["tstamp"] as? Double {
+                            let time = tstamp / 1000.0
+                            let wasPlaying = midiPlayer?.isPlaying ?? false
+                            midiPlayer?.seek(to: time)
+                            if wasPlaying { midiPlayer?.play() }
+                            if let met = metronome { met.seek(to: time); if wasPlaying && met.isEnabled { met.start() } }
+                        }
+                    }
                 }
             }
         }
@@ -293,6 +324,37 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                                 });
                             });
                         });
+
+                        // Create clickable overlays for measures: find measure groups and insert a transparent rect
+                        const measureGroups = document.querySelectorAll('g.measure, g[class*="measure"], g[id*="measure"], [id^="measure-"]');
+                        measureGroups.forEach((g, idx) => {
+                            let bbox = null;
+                            try { bbox = g.getBBox(); } catch (e) { bbox = null; }
+                            if (bbox && bbox.width > 0 && bbox.height > 0) {
+                                // Try to infer measure number from id or class if available
+                                let measureNumber = null;
+                                try {
+                                    const id = g.id || '';
+                                    const cls = g.getAttribute && g.getAttribute('class') || '';
+                                    const combined = id + ' ' + cls;
+                                    const match = combined.match(/(\\d+)/);
+                                    if (match) measureNumber = parseInt(match[0]);
+                                } catch(e) { measureNumber = null }
+                                if (!measureNumber) measureNumber = idx + 1;
+                                const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+                                rect.setAttribute('x', bbox.x);
+                                rect.setAttribute('y', bbox.y);
+                                rect.setAttribute('width', bbox.width);
+                                rect.setAttribute('height', bbox.height);
+                                rect.setAttribute('fill', '#ffe066');
+                                rect.setAttribute('opacity', '0.0');
+                                rect.style.cursor = 'pointer';
+                                rect.addEventListener('click', function(e) { e.stopPropagation(); window.webkit.messageHandlers.measureClickHandler.postMessage(measureNumber); });
+                                rect.addEventListener('mouseenter', function() { rect.setAttribute('opacity', '0.12'); });
+                                rect.addEventListener('mouseleave', function() { rect.setAttribute('opacity', '0.0'); });
+                                g.insertBefore(rect, g.firstChild);
+                            }
+                        });
                     }
                 });
             </script>
@@ -317,6 +379,7 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         config.userContentController.add(context.coordinator, name: "noteClickHandler")
+        config.userContentController.add(context.coordinator, name: "measureClickHandler")
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.isOpaque = false
         webView.backgroundColor = .clear
@@ -366,50 +429,72 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
         weak var verovioService: VerovioService?
         weak var midiPlayer: MIDIPlayer?
         weak var metronome: Metronome?
-
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-            guard message.name == "noteClickHandler",
-                  let noteId = message.body as? String else { return }
+            if message.name == "noteClickHandler", let noteId = message.body as? String {
 
+                // Find the start time for this note
+                if let noteStart = verovioService?.getNoteStartTime(noteId) {
+                    // Map the note start to its containing measure's start time
+                    let measureTimings = verovioService?.getMeasureTimings() ?? []
 
-            // Find the start time for this note
-            if let noteStart = verovioService?.getNoteStartTime(noteId) {
-                // Map the note start to its containing measure's start time
-                let measureTimings = verovioService?.getMeasureTimings() ?? []
-
-                // Find the last measure whose time is <= noteStart
-                var measureStartTime: TimeInterval = noteStart
-                if !measureTimings.isEmpty {
-                    var chosen: TimeInterval? = nil
-                    for entry in measureTimings {
-                        let t = entry.time
-                        if t <= noteStart {
-                            chosen = t
-                        } else {
-                            break
+                    // Find the last measure whose time is <= noteStart
+                    var measureStartTime: TimeInterval = noteStart
+                    if !measureTimings.isEmpty {
+                        var chosen: TimeInterval? = nil
+                        for entry in measureTimings {
+                            let t = entry.time
+                            if t <= noteStart {
+                                chosen = t
+                            } else {
+                                break
+                            }
+                        }
+                        if let c = chosen {
+                            measureStartTime = c
                         }
                     }
-                    if let c = chosen {
-                        measureStartTime = c
+
+                    // Save state before seek
+                    let wasMIDIPlaying = midiPlayer?.isPlaying ?? false
+                    midiPlayer?.seek(to: measureStartTime)
+                    if wasMIDIPlaying {
+                        midiPlayer?.play()
+                    }
+                    if let met = metronome {
+                        met.seek(to: measureStartTime)
+                        if wasMIDIPlaying && met.isEnabled {
+                            met.start()
+                        }
                     }
                 }
 
-                // Save state before seek
-                let wasMIDIPlaying = midiPlayer?.isPlaying ?? false
-                // 1. Seek MIDI
-                midiPlayer?.seek(to: measureStartTime)
+            } else if message.name == "measureClickHandler" {
+                var measureNum: Int? = nil
+                if let i = message.body as? Int { measureNum = i }
+                else if let d = message.body as? Double { measureNum = Int(d) }
+                else if let s = message.body as? String, let i = Int(s) { measureNum = i }
 
-                // 2. If MIDI was playing before, resume playback
-                if wasMIDIPlaying {
-                    midiPlayer?.play()
-                }
+                guard let mNum = measureNum else { return }
 
-                // 3. Seek metronome
-                if let met = metronome {
-                    met.seek(to: measureStartTime)
-                    // 4. Always ensure metronome is started if MIDI was playing before and metronome is enabled
-                    if wasMIDIPlaying && met.isEnabled {
-                        met.start()
+                if let measureStart = verovioService?.getMeasureStartTime(mNum) {
+                    let wasMIDIPlaying = midiPlayer?.isPlaying ?? false
+                    midiPlayer?.seek(to: measureStart)
+                    if wasMIDIPlaying { midiPlayer?.play() }
+                    if let met = metronome { met.seek(to: measureStart); if wasMIDIPlaying && met.isEnabled { met.start() } }
+                } else {
+                    if let timingMapJSON = verovioService?.getTimingMap().data(using: .utf8),
+                       let arr = try? JSONSerialization.jsonObject(with: timingMapJSON) as? [[String: Any]] {
+                        if let first = arr.first(where: { entry in
+                            if let measure = entry["measure"] as? Int { return measure == mNum }
+                            if let measureStr = entry["measure"] as? String, let mi = Int(measureStr) { return mi == mNum }
+                            return false
+                        }), let tstamp = first["tstamp"] as? Double {
+                            let time = tstamp / 1000.0
+                            let wasPlaying = midiPlayer?.isPlaying ?? false
+                            midiPlayer?.seek(to: time)
+                            if wasPlaying { midiPlayer?.play() }
+                            if let met = metronome { met.seek(to: time); if wasPlaying && met.isEnabled { met.start() } }
+                        }
                     }
                 }
             }
@@ -552,6 +637,35 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
                                     window.webkit.messageHandlers.noteClickHandler.postMessage(noteId);
                                 });
                             });
+                        });
+                        // Create clickable overlays for measures
+                        const measureGroups = document.querySelectorAll('g.measure, g[class*="measure"], g[id*="measure"], [id^="measure-"]');
+                        measureGroups.forEach((g, idx) => {
+                            let bbox = null;
+                            try { bbox = g.getBBox(); } catch (e) { bbox = null; }
+                            if (bbox && bbox.width > 0 && bbox.height > 0) {
+                                let measureNumber = null;
+                                try {
+                                    const id = g.id || '';
+                                    const cls = g.getAttribute && g.getAttribute('class') || '';
+                                    const combined = id + ' ' + cls;
+                                    const match = combined.match(/(\\d+)/);
+                                    if (match) measureNumber = parseInt(match[0]);
+                                } catch(e) { measureNumber = null }
+                                if (!measureNumber) measureNumber = idx + 1;
+                                const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+                                rect.setAttribute('x', bbox.x);
+                                rect.setAttribute('y', bbox.y);
+                                rect.setAttribute('width', bbox.width);
+                                rect.setAttribute('height', bbox.height);
+                                rect.setAttribute('fill', '#ffe066');
+                                rect.setAttribute('opacity', '0.0');
+                                rect.style.cursor = 'pointer';
+                                rect.addEventListener('click', function(e) { e.stopPropagation(); window.webkit.messageHandlers.measureClickHandler.postMessage(measureNumber); });
+                                rect.addEventListener('mouseenter', function() { rect.setAttribute('opacity', '0.12'); });
+                                rect.addEventListener('mouseleave', function() { rect.setAttribute('opacity', '0.0'); });
+                                g.insertBefore(rect, g.firstChild);
+                            }
                         });
                     }
                 });
