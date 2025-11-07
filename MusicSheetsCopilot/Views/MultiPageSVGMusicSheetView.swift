@@ -103,35 +103,16 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
             if message.name == "noteClickHandler", let noteId = message.body as? String {
                 print("[DEBUG] noteClickHandler received noteId: \(noteId)")
-                // Find the start time for this note
+                // Find the start time for this note and seek directly to it
                 if let noteStart = verovioService?.getNoteStartTime(noteId) {
-                    // Map the note start to its containing measure's start time
-                    let measureTimings = verovioService?.getMeasureTimings() ?? []
-                    // Find the last measure whose time is <= noteStart
-                    var measureStartTime: TimeInterval = noteStart
-                    if !measureTimings.isEmpty {
-                        var chosen: TimeInterval? = nil
-                        for entry in measureTimings {
-                            let t = entry.time
-                            if t <= noteStart {
-                                chosen = t
-                            } else {
-                                break
-                            }
-                        }
-                        if let c = chosen {
-                            measureStartTime = c
-                        }
-                    }
-                    print("[DEBUG] Seeking to measureStartTime: \(measureStartTime) for noteId: \(noteId)")
-                    // Save state before seek
+                    print("[DEBUG] Seeking to noteStart: \(noteStart) for noteId: \(noteId)")
                     let wasMIDIPlaying = midiPlayer?.isPlaying ?? false
-                    midiPlayer?.seek(to: measureStartTime)
+                    midiPlayer?.seek(to: noteStart)
                     if wasMIDIPlaying {
                         midiPlayer?.play()
                     }
                     if let met = metronome {
-                        met.seek(to: measureStartTime)
+                        met.seek(to: noteStart)
                         if wasMIDIPlaying && met.isEnabled {
                             met.start()
                         }
@@ -139,45 +120,29 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                 }
             } else if message.name == "measureClickHandler" {
                 print("[DEBUG] measureClickHandler received body: \(message.body)")
-                var measureNum: Int? = nil
-                if let i = message.body as? Int { measureNum = i }
-                else if let d = message.body as? Double { measureNum = Int(d) }
-                else if let s = message.body as? String, let i = Int(s) { measureNum = i }
-                print("[DEBUG] Parsed measureNum: \(String(describing: measureNum)) from message.body: \(message.body)")
-                guard let mNum = measureNum else { print("[DEBUG] measureNum is nil, aborting"); return }
-                // Find measure start time via VerovioService
-                if let measureStart = verovioService?.getMeasureStartTime(mNum) {
-                    print("[DEBUG] Seeking to measureStart: \(measureStart) for measureNum: \(mNum)")
-                    let wasMIDIPlaying = midiPlayer?.isPlaying ?? false
-                    midiPlayer?.seek(to: measureStart)
-                    if wasMIDIPlaying {
-                        midiPlayer?.play()
-                    }
-                    if let met = metronome {
-                        met.seek(to: measureStart)
-                        if wasMIDIPlaying && met.isEnabled { met.start() }
+                guard let measureId = message.body as? String, !measureId.isEmpty else {
+                    print("[DEBUG] measureClickHandler: measureId is nil or empty, aborting"); return
+                }
+                print("[DEBUG] measureClickHandler received measureId: \(measureId)")
+                if let timingMapJSON = verovioService?.getTimingMap().data(using: .utf8),
+                   let arr = try? JSONSerialization.jsonObject(with: timingMapJSON) as? [[String: Any]] {
+                    if let first = arr.first(where: { entry in
+                        if let onArray = entry["on"] as? [String] {
+                            return onArray.contains(measureId)
+                        }
+                        return false
+                    }), let tstamp = first["tstamp"] as? Double {
+                        let time = tstamp / 1000.0
+                        print("[DEBUG] Seeking to tstamp: \(time) for measureId: \(measureId)")
+                        let wasPlaying = midiPlayer?.isPlaying ?? false
+                        midiPlayer?.seek(to: time)
+                        if wasPlaying { midiPlayer?.play() }
+                        if let met = metronome { met.seek(to: time); if wasPlaying && met.isEnabled { met.start() } }
+                    } else {
+                        print("[DEBUG] Could not find timing entry for measureId: \(measureId)")
                     }
                 } else {
-                    // As a fallback, try to find first note in timing map for this measure
-                    if let timingMapJSON = verovioService?.getTimingMap().data(using: .utf8),
-                       let arr = try? JSONSerialization.jsonObject(with: timingMapJSON) as? [[String: Any]] {
-                        if let first = arr.first(where: { entry in
-                            if let measure = entry["measure"] as? Int { return measure == mNum }
-                            if let measureStr = entry["measure"] as? String, let mi = Int(measureStr) { return mi == mNum }
-                            return false
-                        }), let tstamp = first["tstamp"] as? Double {
-                            let time = tstamp / 1000.0
-                            print("[DEBUG] Fallback: Seeking to tstamp: \(time) for measureNum: \(mNum)")
-                            let wasPlaying = midiPlayer?.isPlaying ?? false
-                            midiPlayer?.seek(to: time)
-                            if wasPlaying { midiPlayer?.play() }
-                            if let met = metronome { met.seek(to: time); if wasPlaying && met.isEnabled { met.start() } }
-                        } else {
-                            print("[DEBUG] Could not find timing entry for measureNum: \(mNum)")
-                        }
-                    } else {
-                        print("[DEBUG] Could not parse timing map JSON for measureNum: \(mNum)")
-                    }
+                    print("[DEBUG] Could not parse timing map JSON for measureId: \(measureId)")
                 }
             }
         }
@@ -347,7 +312,27 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                                 rect.setAttribute('fill', '#ffe066');
                                 rect.setAttribute('opacity', '0.0');
                                 rect.style.cursor = 'pointer';
-                                rect.addEventListener('click', function(e) { e.stopPropagation(); window.webkit.messageHandlers.measureClickHandler.postMessage(measureNumber); });
+                                rect.addEventListener('click', function(e) {
+                                    e.stopPropagation();
+                                    // Find all note ids in timingData
+                                    const allNoteIds = new Set();
+                                    if (timingData && Array.isArray(timingData)) {
+                                        timingData.forEach(entry => {
+                                            if (entry.on) entry.on.forEach(id => allNoteIds.add(id));
+                                        });
+                                    }
+                                    // Find the first descendant with a matching id
+                                    let firstNoteId = null;
+                                    for (const id of allNoteIds) {
+                                        if (g.querySelector(`[*|id="${id}"]`)) {
+                                            firstNoteId = id;
+                                            break;
+                                        }
+                                    }
+                                    if (firstNoteId) {
+                                        window.webkit.messageHandlers.noteClickHandler.postMessage(firstNoteId);
+                                    }
+                                });
                                 rect.addEventListener('mouseenter', function() { rect.setAttribute('opacity', '0.12'); });
                                 rect.addEventListener('mouseleave', function() { rect.setAttribute('opacity', '0.0'); });
                                 g.insertBefore(rect, g.firstChild);
