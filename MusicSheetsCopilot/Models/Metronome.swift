@@ -4,6 +4,7 @@ import AVFoundation
 enum MetronomeMode {
     case tick        // Traditional tick sound
     case counting    // One Two Three Four based on beats
+    case letter      // C D E F G A B letters based on actual notes
     case solfege     // Do Re Mi based on actual notes
 }
 
@@ -54,6 +55,27 @@ class Metronome: ObservableObject {
     // Initializer with dependency injection (defaults to system time provider)
     init(timeProvider: TimeProvider = SystemTimeProvider()) {
         self.timeProvider = timeProvider
+    }
+
+    /// Map MIDI note number to letter name (naturalized - sharps/flats map to nearest natural)
+    /// e.g. C, D, E, F, G, A, B
+    func midiNoteToLetter(_ midiNote: UInt8) -> String {
+        let noteInOctave = Int(midiNote) % 12
+        let letterMap = [
+            "c",  // C
+            "c",  // C# -> C
+            "d",  // D
+            "d",  // D# -> D
+            "e",  // E
+            "f",  // F
+            "f",  // F# -> F
+            "g",  // G
+            "g",  // G# -> G
+            "a",  // A
+            "a",  // A# -> A
+            "b"   // B
+        ]
+        return letterMap[noteInOctave]
     }
 
     // Map MIDI note number to solfege syllable
@@ -245,7 +267,7 @@ class Metronome: ObservableObject {
                         currentBeat = 0
                     }
                 }
-            } else if mode == .solfege {
+            } else if mode == .letter || mode == .solfege {
                 if !noteEvents.isEmpty {
                     speakNotesAtMetronomeTime()
                 }
@@ -414,7 +436,7 @@ class Metronome: ObservableObject {
                     tickCount = 0
                 }
             }
-        case .solfege:
+        case .letter, .solfege:
             // In solfege mode, update beat based on time, not on every timer tick
             // Get the current playback time
             let currentTime: TimeInterval
@@ -522,8 +544,13 @@ class Metronome: ObservableObject {
             return
         }
 
-        // Get unique solfege syllables for the notes
-        let syllables = notes.map { midiNoteToSolfege($0) }
+        // Map notes to appropriate labels depending on mode
+        let syllables: [String]
+        if mode == .letter {
+            syllables = notes.map { midiNoteToLetter($0) }
+        } else {
+            syllables = notes.map { midiNoteToSolfege($0) }
+        }
         let uniqueSyllables = Array(Set(syllables)).sorted()
 
         // Speak the note names
@@ -581,8 +608,13 @@ class Metronome: ObservableObject {
             return
         }
 
-        // Get unique solfege syllables for the notes
-        let syllables = notesToSpeak.map { midiNoteToSolfege($0.midiNote) }
+        // Map notes to appropriate labels depending on mode
+        let syllables: [String]
+        if mode == .letter {
+            syllables = notesToSpeak.map { midiNoteToLetter($0.midiNote) }
+        } else {
+            syllables = notesToSpeak.map { midiNoteToSolfege($0.midiNote) }
+        }
         let uniqueSyllables = Array(Set(syllables)).sorted()
 
         // Speak the note names

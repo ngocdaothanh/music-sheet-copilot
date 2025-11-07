@@ -245,6 +245,20 @@ struct ContentView: View {
                                 }
                             }
                             Button {
+                                metronome.mode = .letter
+                                if metronome.isTicking {
+                                    metronome.stop()
+                                    metronome.start()
+                                }
+                            } label: {
+                                HStack {
+                                    if metronome.mode == .letter {
+                                        Image(systemName: "checkmark")
+                                    }
+                                    Text("Letter (C-D-E)")
+                                }
+                            }
+                            Button {
                                 metronome.mode = .solfege
                                 if metronome.isTicking {
                                     metronome.stop()
@@ -265,6 +279,8 @@ struct ContentView: View {
                                     Image(systemName: "waveform")
                                 case .counting:
                                     Image(systemName: "textformat.123")
+                                case .letter:
+                                    Image(systemName: "character.textbox")
                                 case .solfege:
                                     Image(systemName: "music.note")
                                 }
@@ -506,6 +522,20 @@ struct ContentView: View {
                                 }
                             }
                             Button {
+                                metronome.mode = .letter
+                                if metronome.isTicking {
+                                    metronome.stop()
+                                    metronome.start()
+                                }
+                            } label: {
+                                HStack {
+                                    if metronome.mode == .letter {
+                                        Image(systemName: "checkmark")
+                                    }
+                                    Text("Letter (C-D-E)")
+                                }
+                            }
+                            Button {
                                 metronome.mode = .solfege
                                 if metronome.isTicking {
                                     metronome.stop()
@@ -526,6 +556,8 @@ struct ContentView: View {
                                     Image(systemName: "waveform")
                                 case .counting:
                                     Image(systemName: "textformat.123")
+                                case .letter:
+                                    Image(systemName: "character.textbox")
                                 case .solfege:
                                     Image(systemName: "music.note")
                                 }

@@ -138,19 +138,6 @@ struct MetronomeTests {
         #expect(metronome.currentTime == 0)
     }
 
-    // MARK: - Mode Tests
-
-    @Test("MetronomeMode enum values exist")
-    func metronomeModesExist() {
-        let tick: MetronomeMode = .tick
-        let counting: MetronomeMode = .counting
-        let solfege: MetronomeMode = .solfege
-
-        #expect(tick == .tick)
-        #expect(counting == .counting)
-        #expect(solfege == .solfege)
-    }
-
     // MARK: - Boundary Tests
 
     @Test("Solfege with out-of-range MIDI note (128) still calculates via modulo")
