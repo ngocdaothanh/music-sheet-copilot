@@ -952,12 +952,12 @@ struct TempoSliderView: View {
             }
 
             HStack(spacing: 12) {
-                Text("50%")
+                Text("25%")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .frame(width: 35)
 
-                Slider(value: $localRate, in: 0.5...2.0, step: 0.05) { editing in
+                Slider(value: $localRate, in: 0.25...1.25, step: 0.05) { editing in
                     if !editing {
                         let newRate = Float(localRate)
                         playbackRate = newRate
@@ -971,7 +971,7 @@ struct TempoSliderView: View {
                     onRateChange(newRate)
                 }
 
-                Text("200%")
+                Text("125%")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .frame(width: 35)
