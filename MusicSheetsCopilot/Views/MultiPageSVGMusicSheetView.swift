@@ -15,11 +15,9 @@ struct MultiPageSVGMusicSheetView: View {
         let currentTime = playbackMode == .metronomeOnly ? metronome.currentTime : midiPlayer.currentTime
         let isPlaying = playbackMode == .metronomeOnly ? metronome.isTicking : midiPlayer.isPlaying
 
-        ScrollView(.vertical) {
-            CombinedSVGWebView(svgPages: svgPages, timingData: timingData, currentTime: currentTime, isPlaying: isPlaying, metronome: metronome)
-                .frame(maxWidth: .infinity)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // Remove outer ScrollView to avoid double scrolling, let WKWebView handle scrolling
+        CombinedSVGWebView(svgPages: svgPages, timingData: timingData, currentTime: currentTime, isPlaying: isPlaying, metronome: metronome)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -36,10 +34,10 @@ struct CombinedSVGWebView: View {
     var body: some View {
         #if os(macOS)
         CombinedSVGWebViewMac(svgPages: svgPages, timingData: timingData, currentTime: currentTime, isPlaying: isPlaying, metronome: metronome)
-            .frame(maxWidth: .infinity, minHeight: 800)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         #else
         CombinedSVGWebViewiOS(svgPages: svgPages, timingData: timingData, currentTime: currentTime, isPlaying: isPlaying, metronome: metronome)
-            .frame(maxWidth: .infinity, minHeight: 800)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         #endif
     }
 }
