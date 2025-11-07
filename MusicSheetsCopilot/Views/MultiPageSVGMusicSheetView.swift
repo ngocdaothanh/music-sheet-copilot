@@ -197,6 +197,15 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                     fill: #ff6b6b !important;
                     opacity: 0.8;
                 }
+                /* Dark mode SVG color inversion */
+                @media (prefers-color-scheme: dark) {
+                  svg {
+                    filter: invert(1) hue-rotate(180deg) brightness(1.1) contrast(1.2);
+                  }
+                  .page-label {
+                    color: #aaa;
+                  }
+                }
             </style>
             <script>
                 // Parse Verovio timing data
