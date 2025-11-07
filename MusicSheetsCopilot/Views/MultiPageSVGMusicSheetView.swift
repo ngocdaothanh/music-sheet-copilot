@@ -192,8 +192,11 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                     display: block;
                 }
                 .highlighted-note {
+                    /* Apply to both filled and stroked musical symbols (notes and rests) */
                     fill: #ff6b6b !important;
-                    opacity: 0.8;
+                    stroke: #ff6b6b !important;
+                    color: #ff6b6b !important;
+                    opacity: 0.9;
                 }
                 /* Dark mode SVG color inversion */
                 @media (prefers-color-scheme: dark) {
@@ -537,8 +540,11 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
                     display: block;
                 }
                 .highlighted-note {
+                    /* Apply to both filled and stroked musical symbols (notes and rests) */
                     fill: #ff6b6b !important;
-                    opacity: 0.8;
+                    stroke: #ff6b6b !important;
+                    color: #ff6b6b !important;
+                    opacity: 0.9;
                 }
             </style>
             <script>
