@@ -53,9 +53,12 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
     @ObservedObject var metronome: Metronome
 
     func makeNSView(context: Context) -> WKWebView {
-        let config = WKWebViewConfiguration()
-        config.userContentController.add(context.coordinator, name: "noteClickHandler")
-        config.userContentController.add(context.coordinator, name: "measureClickHandler")
+    let config = WKWebViewConfiguration()
+    config.userContentController.add(context.coordinator, name: "noteClickHandler")
+    config.userContentController.add(context.coordinator, name: "measureClickHandler")
+    // Handler for logs coming from the JS side. JS should call the `logToSwiftSide` util (defined in the HTML)
+    // instead of console.log so Swift can capture and forward logs to Xcode console.
+    config.userContentController.add(context.coordinator, name: "swiftLog")
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.setValue(false, forKey: "drawsBackground")
         return webView
@@ -99,6 +102,12 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
         weak var midiPlayer: MIDIPlayer?
         weak var metronome: Metronome?
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            if message.name == "swiftLog" {
+                // Print JS logs on the Swift side so they appear in Xcode console.
+                // Message body may be a string or other serializable value.
+                print("[JS] \(message.body)")
+                return
+            }
             if message.name == "noteClickHandler", let noteId = message.body as? String {
                 print("[DEBUG] noteClickHandler received noteId: \(noteId)")
                 // Find the start time for this note and seek directly to it
@@ -211,6 +220,40 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
             <script>
                 // Parse Verovio timing data
                 const timingData = \(timingData);
+                // Utility to forward logs to the Swift side. IMPORTANT: for logging, instead of calling
+                // `console.log`, JS should call `logToSwiftSide(...)` so Swift can capture logs in Xcode.
+                function logToSwiftSide(...args) {
+                    try {
+                        const payload = args.map(a => {
+                            try { return typeof a === 'string' ? a : JSON.stringify(a); } catch(e) { return String(a); }
+                        }).join(' ');
+                        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.swiftLog) {
+                            window.webkit.messageHandlers.swiftLog.postMessage(payload);
+                        } else {
+                            // Fallback to console when not running inside WKWebView
+                            console.log.apply(console, args);
+                        }
+                    } catch(e) {
+                        console.log('logToSwiftSide error', e, args);
+                    }
+                }
+                // Utility to forward logs to the Swift side. IMPORTANT: for logging, instead of calling
+                // `console.log`, JS should call `logToSwiftSide(...)` so Swift can capture logs in Xcode.
+                function logToSwiftSide(...args) {
+                    try {
+                        const payload = args.map(a => {
+                            try { return typeof a === 'string' ? a : JSON.stringify(a); } catch(e) { return String(a); }
+                        }).join(' ');
+                        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.swiftLog) {
+                            window.webkit.messageHandlers.swiftLog.postMessage(payload);
+                        } else {
+                            // Fallback to console when not running inside WKWebView
+                            console.log.apply(console, args);
+                        }
+                    } catch(e) {
+                        console.log('logToSwiftSide error', e, args);
+                    }
+                }
                 let currentHighlightedElements = [];
 
                 function updatePlaybackHighlight(timeMs) {
@@ -258,6 +301,8 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
 
                 // Initialize click handlers when page loads
                 window.addEventListener('load', function() {
+                    // Signal to Swift that the webview finished loading
+                    logToSwiftSide('[load] WebView loaded and handlers set up');
 
                     // Add handlers for all elements that have IDs in our timing data
                     if (timingData && Array.isArray(timingData)) {
@@ -274,6 +319,7 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                                 el.style.cursor = 'pointer';
                                 el.addEventListener('click', function(e) {
                                     e.stopPropagation();
+                                    logToSwiftSide('[click] note', noteId);
                                     window.webkit.messageHandlers.noteClickHandler.postMessage(noteId);
                                 });
                             });
@@ -318,19 +364,15 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                                     // Find all note ids in timingData
                                     const allNoteIds = new Set();
                                     if (timingData && Array.isArray(timingData)) {
-                                        timingData.forEach(entry => {
-                                            if (entry.on) entry.on.forEach(id => allNoteIds.add(id));
-                                        });
+                                        timingData.forEach(entry => { if (entry.on) entry.on.forEach(id => allNoteIds.add(id)); });
                                     }
                                     // Find the first descendant with a matching id
                                     let firstNoteId = null;
                                     for (const id of allNoteIds) {
-                                        if (g.querySelector(`[*|id="${id}"]`)) {
-                                            firstNoteId = id;
-                                            break;
-                                        }
+                                        if (g.querySelector(`[*|id="${id}"]`)) { firstNoteId = id; break; }
                                     }
                                     if (firstNoteId) {
+                                        logToSwiftSide('[click] measure overlay -> note', firstNoteId);
                                         window.webkit.messageHandlers.noteClickHandler.postMessage(firstNoteId);
                                     }
                                 });
@@ -361,9 +403,12 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
     @ObservedObject var metronome: Metronome
 
     func makeUIView(context: Context) -> WKWebView {
-        let config = WKWebViewConfiguration()
-        config.userContentController.add(context.coordinator, name: "noteClickHandler")
-        config.userContentController.add(context.coordinator, name: "measureClickHandler")
+    let config = WKWebViewConfiguration()
+    config.userContentController.add(context.coordinator, name: "noteClickHandler")
+    config.userContentController.add(context.coordinator, name: "measureClickHandler")
+    // Handler for logs coming from the JS side. JS should call the `logToSwiftSide` util (defined in the HTML)
+    // instead of console.log so Swift can capture and forward logs to Xcode console.
+    config.userContentController.add(context.coordinator, name: "swiftLog")
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.isOpaque = false
         webView.backgroundColor = .clear
@@ -414,6 +459,10 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
         weak var midiPlayer: MIDIPlayer?
         weak var metronome: Metronome?
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            if message.name == "swiftLog" {
+                print("[JS] \(message.body)")
+                return
+            }
             if message.name == "noteClickHandler", let noteId = message.body as? String {
 
                 // Find the start time for this note
@@ -601,7 +650,8 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
 
                 // Initialize click handlers when page loads
                 window.addEventListener('load', function() {
-                    console.log('Setting up click handlers for notes');
+                    logToSwiftSide('[load] WebView loaded and handlers set up');
+                    logToSwiftSide('Setting up click handlers for notes');
 
                     // Add handlers for all elements that have IDs in our timing data
                     if (timingData && Array.isArray(timingData)) {
@@ -620,7 +670,7 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
                                 el.style.cursor = 'pointer';
                                 el.addEventListener('click', function(e) {
                                     e.stopPropagation();
-                                    console.log('Clicked note:', noteId);
+                                    logToSwiftSide('[click] note', noteId);
                                     window.webkit.messageHandlers.noteClickHandler.postMessage(noteId);
                                 });
                             });
@@ -648,7 +698,7 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
                                 rect.setAttribute('fill', '#ffe066');
                                 rect.setAttribute('opacity', '0.0');
                                 rect.style.cursor = 'pointer';
-                                rect.addEventListener('click', function(e) { e.stopPropagation(); window.webkit.messageHandlers.measureClickHandler.postMessage(measureNumber); });
+                                rect.addEventListener('click', function(e) { e.stopPropagation(); logToSwiftSide('[click] measure overlay', measureNumber); window.webkit.messageHandlers.measureClickHandler.postMessage(measureNumber); });
                                 rect.addEventListener('mouseenter', function() { rect.setAttribute('opacity', '0.12'); });
                                 rect.addEventListener('mouseleave', function() { rect.setAttribute('opacity', '0.0'); });
                                 g.insertBefore(rect, g.firstChild);
