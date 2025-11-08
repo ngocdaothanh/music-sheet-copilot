@@ -167,55 +167,19 @@ struct ContentView: View {
 
                     Divider()
 
-                    // Playback mode selector
-                    Menu {
-                        Button {
-                            playbackMode = .midiWithMetronome
-                        } label: {
-                            HStack {
-                                if playbackMode == .midiWithMetronome {
-                                    Image(systemName: "checkmark")
-                                }
-                                Text("MIDI Playback")
-                            }
-                        }
-
-                        Button {
-                            playbackMode = .metronomeOnly
-                            // Auto-enable metronome when switching to metronome-only mode
-                            if !metronome.isEnabled {
-                                metronome.isEnabled = true
-                            }
-                        } label: {
-                            HStack {
-                                if playbackMode == .metronomeOnly {
-                                    Image(systemName: "checkmark")
-                                }
-                                Text("Metronome Only (Practice)")
-                            }
-                        }
-                    } label: {
-                        Image(systemName: playbackMode == .midiWithMetronome ? "speaker.wave.2.fill" : "metronome.fill")
+                    // Metronome toggle (always available)
+                    Toggle(isOn: $metronome.isEnabled) {
+                        Image(systemName: "metronome")
                     }
-                    .help(playbackMode == .midiWithMetronome ? "Playing MIDI with optional metronome" : "Playing metronome only for practice")
-
-                    Divider()
-
-                    // Metronome toggle (only show in MIDI mode, always enabled in metronome-only mode)
-                    if playbackMode == .midiWithMetronome {
-                        Toggle(isOn: $metronome.isEnabled) {
-                            Image(systemName: "metronome")
-                        }
-                        .toggleStyle(.button)
-                        .help(metronome.isEnabled ? "Disable Metronome" : "Enable Metronome")
-                        .onChange(of: metronome.isEnabled) { oldValue, newValue in
-                            if newValue && midiPlayer.isPlaying {
-                                let bpm = verovioService.getTempoBPM() ?? 120.0
-                                metronome.bpm = bpm
-                                metronome.start()
-                            } else {
-                                metronome.stop()
-                            }
+                    .toggleStyle(.button)
+                    .help(metronome.isEnabled ? "Disable Metronome" : "Enable Metronome")
+                    .onChange(of: metronome.isEnabled) { oldValue, newValue in
+                        if newValue && midiPlayer.isPlaying {
+                            let bpm = verovioService.getTempoBPM() ?? 120.0
+                            metronome.bpm = bpm
+                            metronome.start()
+                        } else {
+                            metronome.stop()
                         }
                     }
 
@@ -451,55 +415,19 @@ struct ContentView: View {
 
                     Divider()
 
-                    // Playback mode selector
-                    Menu {
-                        Button {
-                            playbackMode = .midiWithMetronome
-                        } label: {
-                            HStack {
-                                if playbackMode == .midiWithMetronome {
-                                    Image(systemName: "checkmark")
-                                }
-                                Text("MIDI Playback")
-                            }
-                        }
-
-                        Button {
-                            playbackMode = .metronomeOnly
-                            // Auto-enable metronome when switching to metronome-only mode
-                            if !metronome.isEnabled {
-                                metronome.isEnabled = true
-                            }
-                        } label: {
-                            HStack {
-                                if playbackMode == .metronomeOnly {
-                                    Image(systemName: "checkmark")
-                                }
-                                Text("Metronome Only (Practice)")
-                            }
-                        }
-                    } label: {
-                        Image(systemName: playbackMode == .midiWithMetronome ? "speaker.wave.2.fill" : "metronome.fill")
+                    // Metronome toggle (always available)
+                    Toggle(isOn: $metronome.isEnabled) {
+                        Image(systemName: "metronome")
                     }
-                    .help(playbackMode == .midiWithMetronome ? "Playing MIDI with optional metronome" : "Playing metronome only for practice")
-
-                    Divider()
-
-                    // Metronome toggle (only show in MIDI mode, always enabled in metronome-only mode)
-                    if playbackMode == .midiWithMetronome {
-                        Toggle(isOn: $metronome.isEnabled) {
-                            Image(systemName: "metronome")
-                        }
-                        .toggleStyle(.button)
-                        .help(metronome.isEnabled ? "Disable Metronome" : "Enable Metronome")
-                        .onChange(of: metronome.isEnabled) { oldValue, newValue in
-                            if newValue && midiPlayer.isPlaying {
-                                let bpm = verovioService.getTempoBPM() ?? 120.0
-                                metronome.bpm = bpm
-                                metronome.start()
-                            } else {
-                                metronome.stop()
-                            }
+                    .toggleStyle(.button)
+                    .help(metronome.isEnabled ? "Disable Metronome" : "Enable Metronome")
+                    .onChange(of: metronome.isEnabled) { oldValue, newValue in
+                        if newValue && midiPlayer.isPlaying {
+                            let bpm = verovioService.getTempoBPM() ?? 120.0
+                            metronome.bpm = bpm
+                            metronome.start()
+                        } else {
+                            metronome.stop()
                         }
                     }
 
