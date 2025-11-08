@@ -13,6 +13,8 @@ struct ContentView: View {
     @State private var errorMessage: String?
     @StateObject private var midiPlayer = MIDIPlayer()
     @StateObject private var verovioService = VerovioService()
+    // Staves selected for MIDI playback ("Play for me")
+    @State private var selectedStavesForPlayback: Set<String> = []
 
     @StateObject private var metronome = Metronome()
     @State private var metronomeCancellable: AnyCancellable?
@@ -133,6 +135,10 @@ struct ContentView: View {
                 isMetronomeOnlyPlaying = false
             }
             metronome.stop()
+        }
+        // React to changes in the user's "Play for me" stave selection
+        .onChange(of: selectedStavesForPlayback) { _ in
+            updateMIDISelection()
         }
         .onAppear {
             // Set the MIDIPlayer reference for the metronome
@@ -369,27 +375,34 @@ struct ContentView: View {
 
                     Divider()
 
-                    // Staves selector (show if multiple staves available)
-                    if verovioService.availableStaves.count > 1 {
+                    // "Play for me" selector: choose staves to include in MIDI playback
+                    if verovioService.availableStaves.count > 0 {
                         Menu {
                             ForEach(verovioService.availableStaves.indices, id: \.self) { index in
                                 let (partId, staffNumber, staffName) = verovioService.availableStaves[index]
+                                let staveKey = "\(partId)-\(staffNumber)"
                                 Button(action: {
-                                    toggleStaff(partId: partId, staffNumber: staffNumber)
+                                    if selectedStavesForPlayback.contains(staveKey) {
+                                        selectedStavesForPlayback.remove(staveKey)
+                                    } else {
+                                        selectedStavesForPlayback.insert(staveKey)
+                                    }
                                 }) {
                                     HStack {
-                                        let staveKey = "\(partId)-\(staffNumber)"
-                                        if verovioService.enabledStaves.contains(staveKey) {
+                                        if selectedStavesForPlayback.contains(staveKey) {
                                             Image(systemName: "checkmark")
                                         }
                                         Text(staffName)
                                     }
                                 }
                             }
+
                         } label: {
-                            Image(systemName: "music.note.list")
+                            HStack {
+                                Image(systemName: "play.circle")
+                            }
                         }
-                        .help("Select Staves")
+                        .help("Play for me: select which staves to include in MIDI playback")
 
                         Divider()
                     }
@@ -657,27 +670,34 @@ struct ContentView: View {
 
                     Divider()
 
-                    // Staves selector (show if multiple staves available)
-                    if verovioService.availableStaves.count > 1 {
+                    // "Play for me" selector: choose staves to include in MIDI playback
+                    if verovioService.availableStaves.count > 0 {
                         Menu {
                             ForEach(verovioService.availableStaves.indices, id: \.self) { index in
                                 let (partId, staffNumber, staffName) = verovioService.availableStaves[index]
+                                let staveKey = "\(partId)-\(staffNumber)"
                                 Button(action: {
-                                    toggleStaff(partId: partId, staffNumber: staffNumber)
+                                    if selectedStavesForPlayback.contains(staveKey) {
+                                        selectedStavesForPlayback.remove(staveKey)
+                                    } else {
+                                        selectedStavesForPlayback.insert(staveKey)
+                                    }
                                 }) {
                                     HStack {
-                                        let staveKey = "\(partId)-\(staffNumber)"
-                                        if verovioService.enabledStaves.contains(staveKey) {
+                                        if selectedStavesForPlayback.contains(staveKey) {
                                             Image(systemName: "checkmark")
                                         }
                                         Text(staffName)
                                     }
                                 }
                             }
+
                         } label: {
-                            Image(systemName: "music.note.list")
+                            HStack {
+                                Image(systemName: "play.circle")
+                            }
                         }
-                        .help("Select Staves")
+                        .help("Play for me: select which staves to include in MIDI playback")
 
                         Divider()
                     }
@@ -803,16 +823,9 @@ struct ContentView: View {
     private func toggleStaff(partId: String, staffNumber: Int) {
         let staveKey = "\(partId)-\(staffNumber)"
 
-        if verovioService.enabledStaves.contains(staveKey) {
-            // Don't allow disabling all staves
-            if verovioService.enabledStaves.count > 1 {
-                verovioService.enabledStaves.remove(staveKey)
-                reloadScore()
-            }
-        } else {
-            verovioService.enabledStaves.insert(staveKey)
-            reloadScore()
-        }
+        // Previously toggled visual staves; we no longer hide visual staves.
+        // Keep this function to avoid changing other call sites but make it a no-op.
+        return
     }
 
     private func togglePart(_ partId: String) {
@@ -828,6 +841,51 @@ struct ContentView: View {
         }
     }
 
+    /// Update the MIDI data loaded into the MIDI player based on the user's
+    /// selected staves for the "Play for me" feature. This will replace the
+    /// audio source (midiPlayer.loadMIDI) and update note events used by the metronome.
+    private func updateMIDISelection() {
+        // If no score loaded, nothing to do
+        guard verovioService.lastLoadedData != nil else { return }
+
+        // If user selected staves, try to get MIDI for those staves and load into the player.
+        if !selectedStavesForPlayback.isEmpty {
+            if let selectedMidiString = verovioService.getMIDIForStaves(selectedStavesForPlayback), let selectedMidiData = Data(base64Encoded: selectedMidiString) {
+                let wasPlaying = midiPlayer.isPlaying
+                do {
+                    try midiPlayer.loadMIDI(data: selectedMidiData)
+                    midiPlayer.loadNoteEventsFromFilteredMIDI(data: selectedMidiData)
+                    metronome.setNoteEvents(midiPlayer.noteEvents)
+                    print("ContentView.updateMIDISelection: loaded selected staves MIDI (\(selectedStavesForPlayback.count) staves)")
+                    if wasPlaying { midiPlayer.play() }
+                } catch {
+                    print("Warning: Failed to load selected-staves MIDI: \(error.localizedDescription)")
+                }
+            } else {
+                print("ContentView.updateMIDISelection: Verovio failed to produce MIDI for selected staves: \(selectedStavesForPlayback)")
+            }
+        } else {
+            // No selection: reload full MIDI into player and restore prior note-event filtering (first staff)
+            let fullMidiString = verovioService.getMIDI()
+            if !fullMidiString.isEmpty, let fullMidiData = Data(base64Encoded: fullMidiString) {
+                let wasPlaying = midiPlayer.isPlaying
+                do {
+                    try midiPlayer.loadMIDI(data: fullMidiData)
+                    if let filteredMidiString = verovioService.getMIDIForFirstStaff(), let filteredMidiData = Data(base64Encoded: filteredMidiString) {
+                        midiPlayer.loadNoteEventsFromFilteredMIDI(data: filteredMidiData)
+                        metronome.setNoteEvents(midiPlayer.noteEvents)
+                    }
+                    print("ContentView.updateMIDISelection: loaded full MIDI")
+                    if wasPlaying { midiPlayer.play() }
+                } catch {
+                    print("Warning: Failed to reload full MIDI: \(error.localizedDescription)")
+                }
+            } else {
+                print("ContentView.updateMIDISelection: no full MIDI available")
+            }
+        }
+    }
+
     private func reloadScore() {
         // Reload the score with current enabled parts
         guard let xmlData = verovioService.lastLoadedData else { return }
@@ -839,17 +897,27 @@ struct ContentView: View {
             let timing = verovioService.getTimingMap()
             timingData = timing
 
-            let midiString = verovioService.getMIDI()
-            if midiString.isEmpty {
+            // Load either full MIDI or filtered MIDI depending on user selection
+            let fullMidiString = verovioService.getMIDI()
+            if fullMidiString.isEmpty {
                 print("Warning: Verovio returned empty MIDI string")
-            } else if let midiData = Data(base64Encoded: midiString) {
+            } else if let fullMidiData = Data(base64Encoded: fullMidiString) {
                 do {
-                    try midiPlayer.loadMIDI(data: midiData)
+                    // If user selected staves for playback, prefer that MIDI as the audio source
+                    if !selectedStavesForPlayback.isEmpty, let selectedMidiString = verovioService.getMIDIForStaves(selectedStavesForPlayback), let selectedMidiData = Data(base64Encoded: selectedMidiString) {
+                        try midiPlayer.loadMIDI(data: selectedMidiData)
+                    } else {
+                        try midiPlayer.loadMIDI(data: fullMidiData)
+                    }
+
                     let bpm = verovioService.getTempoBPM() ?? 120.0
                     metronome.bpm = bpm
 
-                    // Load filtered note events for solfege mode (first staff only)
-                    if let filteredMidiString = verovioService.getMIDIForFirstStaff() {
+                    // Load filtered note events for solfege mode (first staff only) or use selected staves note events
+                    if !selectedStavesForPlayback.isEmpty, let selectedMidiString = verovioService.getMIDIForStaves(selectedStavesForPlayback), let selectedMidiData = Data(base64Encoded: selectedMidiString) {
+                        midiPlayer.loadNoteEventsFromFilteredMIDI(data: selectedMidiData)
+                        metronome.setNoteEvents(midiPlayer.noteEvents)
+                    } else if let filteredMidiString = verovioService.getMIDIForFirstStaff() {
                         if let filteredMidiData = Data(base64Encoded: filteredMidiString) {
                             midiPlayer.loadNoteEventsFromFilteredMIDI(data: filteredMidiData)
                             metronome.setNoteEvents(midiPlayer.noteEvents)
@@ -860,7 +928,7 @@ struct ContentView: View {
                     // Continue without MIDI playback
                 }
             } else {
-                print("Warning: Failed to decode base64 MIDI string (length: \(midiString.count))")
+                print("Warning: Failed to decode base64 MIDI string (length: \(fullMidiString.count))")
             }
         } catch {
             errorMessage = "Failed to reload score: \(error.localizedDescription)"
@@ -920,8 +988,12 @@ struct ContentView: View {
                     let bpm = verovioService.getTempoBPM() ?? 120.0
                     metronome.bpm = bpm
 
-                    // Load filtered note events for solfege mode (first staff only)
-                    if let filteredMidiString = verovioService.getMIDIForFirstStaff() {
+                    // Load filtered note events for playback. If user selected staves for "Play for me",
+                    // load note events from those staves; otherwise fall back to solfege-first-staff behavior.
+                    if !selectedStavesForPlayback.isEmpty, let selectedMidiString = verovioService.getMIDIForStaves(selectedStavesForPlayback), let selectedMidiData = Data(base64Encoded: selectedMidiString) {
+                        midiPlayer.loadNoteEventsFromFilteredMIDI(data: selectedMidiData)
+                        metronome.setNoteEvents(midiPlayer.noteEvents)
+                    } else if let filteredMidiString = verovioService.getMIDIForFirstStaff() {
                         if let filteredMidiData = Data(base64Encoded: filteredMidiString) {
                             midiPlayer.loadNoteEventsFromFilteredMIDI(data: filteredMidiData)
                             metronome.setNoteEvents(midiPlayer.noteEvents)

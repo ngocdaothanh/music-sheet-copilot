@@ -264,6 +264,48 @@ class VerovioService: ObservableObject {
         return tempToolkit.renderToMIDI()
     }
 
+    /// Get MIDI output containing only the specified staves.
+    /// - Parameter selectedStaves: Set of staff keys ("partId-staffNumber") to include in the MIDI output.
+    /// - Returns: Base64 MIDI string for the selected staves, or nil on error.
+    func getMIDIForStaves(_ selectedStaves: Set<String>) -> String? {
+        guard let musicXMLString = lastLoadedMusicXML else {
+            return nil
+        }
+
+        // If nothing selected, return nil (caller can decide fallback behavior)
+        if selectedStaves.isEmpty { return nil }
+
+        // Filter MusicXML to only include the requested staves
+        var filteredXML = hideDisabledStaves(in: musicXMLString, enabledStaves: selectedStaves)
+
+        // Also limit parts to those which still have selected staves
+        let partIds = Set(selectedStaves.compactMap { key -> String? in
+            let parts = key.split(separator: "-")
+            return parts.first.map(String.init)
+        })
+
+        if !partIds.isEmpty {
+            filteredXML = hideDisabledParts(in: filteredXML, enabledIds: partIds)
+        }
+
+        // Render MIDI using a temporary toolkit to avoid affecting main renderer state
+        let tempToolkit = VerovioToolkit()
+        if let resourcePath = self.resourcePath {
+            _ = tempToolkit.setResourcePath(resourcePath)
+        }
+
+        let loaded = tempToolkit.loadData(filteredXML)
+        if !loaded {
+            let log = tempToolkit.getLog()
+            print("VerovioService.getMIDIForStaves: failed to load filtered MusicXML into temp toolkit: \(log)")
+            return nil
+        }
+
+        let midi = tempToolkit.renderToMIDI()
+        print("VerovioService.getMIDIForStaves: selectedStaves=\(selectedStaves) -> midiLength=\(midi.count)")
+        return midi
+    }
+
     /// Get timing information for all elements (notes, measures, etc.)
     /// Returns a JSON string with element IDs and their on/off times in milliseconds
     func getTimingMap() -> String {
