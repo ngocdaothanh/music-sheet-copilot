@@ -20,15 +20,10 @@ struct ContentView: View {
     @State private var metronomeCancellable: AnyCancellable?
     @State private var showTempoPopover = false
 
-    /// Playback mode: MIDI playback with optional metronome, or metronome-only for practice
-    enum PlaybackMode {
-        case midiWithMetronome  // Play MIDI, metronome enabled/disabled by toggle
-        case metronomeOnly      // Play only metronome (for practicing on real piano)
-    }
-    @State private var playbackMode: PlaybackMode = .midiWithMetronome
-
-    /// Tracks if metronome-only playback is active
-    @State private var isMetronomeOnlyPlaying = false
+    // Visual-only playback state: when playing without audio (no selected staves
+    // and metronome disabled) we advance the visual position via a timer.
+    @State private var visualPlaybackTimer: Timer?
+    @State private var isVisualPlaying: Bool = false
 
     init() {
         // Can't set metronome.midiPlayer in init with @StateObject
@@ -47,7 +42,8 @@ struct ContentView: View {
                     timingData: timing,
                     midiPlayer: midiPlayer,
                     metronome: metronome,
-                    playbackMode: playbackMode
+                    currentTimeOverride: metronome.isEnabled ? metronome.currentTime : nil,
+                    isPlayingOverride: metronome.isEnabled ? metronome.isTicking : (isVisualPlaying ? true : nil)
                 )
                     .environmentObject(verovioService)
                     .environmentObject(midiPlayer)
@@ -110,34 +106,16 @@ struct ContentView: View {
         .onChange(of: midiPlayer.isPlaying) { oldValue, newValue in
             // Only stop metronome if MIDI playback truly stopped at the end, not after a seek
             let atEnd = midiPlayer.duration > 0 && abs(midiPlayer.currentTime - midiPlayer.duration) < 0.1
-            if !newValue && metronome.isTicking && playbackMode == .midiWithMetronome && atEnd {
+            if !newValue && metronome.isTicking && atEnd {
                 metronome.stop()
             }
         }
-        .onChange(of: isMetronomeOnlyPlaying) { oldValue, newValue in
-            // When metronome-only mode stops, stop the metronome
-            if !newValue && metronome.isTicking {
-                metronome.stop()
-            }
-        }
-        .onChange(of: metronome.isTicking) { oldValue, newValue in
-            // Sync metronome ticking state with isMetronomeOnlyPlaying in metronome-only mode
-            if playbackMode == .metronomeOnly {
-                isMetronomeOnlyPlaying = newValue
-            }
-        }
-        .onChange(of: playbackMode) { oldValue, newValue in
-            // Stop any current playback when switching modes
-            if midiPlayer.isPlaying {
-                midiPlayer.stop()
-            }
-            if isMetronomeOnlyPlaying {
-                isMetronomeOnlyPlaying = false
-            }
-            metronome.stop()
+        .onChange(of: metronome.isTicking) {
+            // No-op: we no longer have a separate metronome-only playback mode state
+            // Keep this hook in case other components depend on metronome.isTicking
         }
         // React to changes in the user's "Play for me" stave selection
-        .onChange(of: selectedStavesForPlayback) { _ in
+        .onChange(of: selectedStavesForPlayback) {
             updateMIDISelection()
         }
         .onAppear {
@@ -159,7 +137,7 @@ struct ContentView: View {
                     Button(action: {
                         togglePlayback()
                     }) {
-                        let isAnyPlaying = midiPlayer.isPlaying || isMetronomeOnlyPlaying
+                        let isAnyPlaying = midiPlayer.isPlaying || isVisualPlaying
                         Image(systemName: isAnyPlaying ? "pause.circle.fill" : "play.circle.fill")
                             .font(.title2)
                     }
@@ -407,7 +385,7 @@ struct ContentView: View {
                     Button(action: {
                         togglePlayback()
                     }) {
-                        let isAnyPlaying = midiPlayer.isPlaying || isMetronomeOnlyPlaying
+                        let isAnyPlaying = midiPlayer.isPlaying || isVisualPlaying
                         Image(systemName: isAnyPlaying ? "pause.circle.fill" : "play.circle.fill")
                             .font(.title2)
                     }
@@ -700,8 +678,22 @@ struct ContentView: View {
 
     /// Toggle playback based on current mode (MIDI or metronome-only)
     private func togglePlayback() {
-        switch playbackMode {
-        case .midiWithMetronome:
+        // Determine if there is audio to play: either MIDIPlayer has data and a selected-staves
+        // MIDI was loaded, or metronome is enabled. If not, we should still advance visuals
+        // (silent playback) so users can follow along without sound.
+
+        let hasAudioOutput: Bool = {
+            // If metronome is enabled it will produce sound.
+            if metronome.isEnabled { return true }
+
+            // If the MIDIPlayer has data and either selected staves are non-empty (we loaded
+            // selected-staves MIDI) or the main MIDI was loaded, consider audio available.
+            if midiPlayer.duration > 0 && verovioService.getMIDI().count > 0 { return true }
+            return false
+        }()
+
+        if hasAudioOutput {
+            // Normal audio playback via MIDIPlayer
             midiPlayer.togglePlayPause()
 
             // Notify metronome of MIDI playback state change
@@ -715,45 +707,51 @@ struct ContentView: View {
             } else {
                 metronome.stop()
             }
-
-        case .metronomeOnly:
-            isMetronomeOnlyPlaying.toggle()
-            if isMetronomeOnlyPlaying {
-                // Start metronome-only playback
-                let bpm = verovioService.getTempoBPM() ?? 120.0
-                metronome.bpm = bpm
-                metronome.isEnabled = true  // Ensure metronome is enabled
-                metronome.start()
+        } else {
+            // No audio output available -> perform visual-only playback by driving the
+            // midiPlayer.currentTime forward with a timer. This keeps the WebView highlighting
+            // in sync without producing sound.
+            if isVisualPlaying {
+                stopVisualPlayback()
             } else {
-                // Stop metronome
-                metronome.stop()
+                startVisualPlayback()
             }
         }
     }
 
     /// Get appropriate help text for the play button based on current mode and state
     private func getPlayButtonHelp() -> String {
-        let isAnyPlaying = midiPlayer.isPlaying || isMetronomeOnlyPlaying
+        let isAnyPlaying = midiPlayer.isPlaying || isVisualPlaying
+        return isAnyPlaying ? "Pause Playback" : "Play"
+    }
 
-        switch playbackMode {
-        case .midiWithMetronome:
-            return isAnyPlaying ? "Pause MIDI Playback" : "Play MIDI"
-        case .metronomeOnly:
-            return isAnyPlaying ? "Stop Metronome" : "Play Metronome (Practice Mode)"
+    private func startVisualPlayback() {
+        // Keep a reference so we can stop it. Advance at 100ms intervals to match the
+        // MIDIPlayer timer granularity.
+        isVisualPlaying = true
+        visualPlaybackTimer?.invalidate()
+        visualPlaybackTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+            // Advance currentTime by the timer interval adjusted by playbackRate
+            let delta = 0.1 * TimeInterval(midiPlayer.playbackRate)
+            midiPlayer.currentTime += delta
+            // Cap at duration if known
+            if midiPlayer.duration > 0 && midiPlayer.currentTime >= midiPlayer.duration {
+                midiPlayer.currentTime = 0
+                stopVisualPlayback()
+            }
         }
+    }
+
+    private func stopVisualPlayback() {
+        isVisualPlaying = false
+        visualPlaybackTimer?.invalidate()
+        visualPlaybackTimer = nil
+        // Ensure the WebView and UI see the paused time; don't reset unless at end
     }
 
     private func setPlaybackRate(_ rate: Float) {
         midiPlayer.playbackRate = rate
         metronome.playbackRate = rate
-    }
-
-    private func toggleStaff(partId: String, staffNumber: Int) {
-        let staveKey = "\(partId)-\(staffNumber)"
-
-        // Previously toggled visual staves; we no longer hide visual staves.
-        // Keep this function to avoid changing other call sites but make it a no-op.
-        return
     }
 
     private func togglePart(_ partId: String) {

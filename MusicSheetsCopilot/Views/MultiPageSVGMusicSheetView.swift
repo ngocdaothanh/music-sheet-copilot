@@ -7,13 +7,15 @@ struct MultiPageSVGMusicSheetView: View {
     let timingData: String
     @ObservedObject var midiPlayer: MIDIPlayer
     @ObservedObject var metronome: Metronome
-    let playbackMode: ContentView.PlaybackMode
+    // Use explicit current time and playing flag provided by the parent view
+    let currentTimeOverride: TimeInterval?
+    let isPlayingOverride: Bool?
     @EnvironmentObject var verovioService: VerovioService
 
     var body: some View {
-        // Use metronome's currentTime in metronome-only mode, otherwise use MIDI player's time
-        let currentTime = playbackMode == .metronomeOnly ? metronome.currentTime : midiPlayer.currentTime
-        let isPlaying = playbackMode == .metronomeOnly ? metronome.isTicking : midiPlayer.isPlaying
+    // Use overrides if provided by parent; otherwise default to MIDI player's values
+    let currentTime = currentTimeOverride ?? midiPlayer.currentTime
+    let isPlaying = isPlayingOverride ?? midiPlayer.isPlaying
 
         // Remove outer ScrollView to avoid double scrolling, let WKWebView handle scrolling
         CombinedSVGWebView(svgPages: svgPages, timingData: timingData, currentTime: currentTime, isPlaying: isPlaying, metronome: metronome)

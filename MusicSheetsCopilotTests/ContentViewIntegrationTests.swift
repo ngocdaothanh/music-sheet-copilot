@@ -7,17 +7,7 @@ import SwiftUI
 @Suite("ContentView Integration Tests")
 struct ContentViewIntegrationTests {
 
-    // MARK: - Playback Mode Tests
-
-    @Test("PlaybackMode enum has expected cases")
-    func playbackModeValues() {
-        // Test that enum has expected values
-        let midiMode: ContentView.PlaybackMode = .midiWithMetronome
-        let metronomeMode: ContentView.PlaybackMode = .metronomeOnly
-
-        #expect(midiMode == .midiWithMetronome)
-        #expect(metronomeMode == .metronomeOnly)
-    }
+    // Playback mode was refactored out; behavior validated via other playback tests
 
     // MARK: - Demo File Loading Tests
 
