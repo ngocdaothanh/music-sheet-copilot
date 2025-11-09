@@ -129,6 +129,8 @@ struct ContentView: View {
                 .sink { newTimeSignature in
                     metronome.timeSignature = newTimeSignature
                 }
+            // Ensure metronome honors the current playback rate (e.g., default 50%)
+            metronome.playbackRate = midiPlayer.playbackRate
         }
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -154,10 +156,16 @@ struct ContentView: View {
                     .toggleStyle(.button)
                     .help(metronome.isEnabled ? "Disable Metronome" : "Enable Metronome")
                     .onChange(of: metronome.isEnabled) { oldValue, newValue in
-                        if newValue && midiPlayer.isPlaying {
+                        if newValue {
                             let bpm = verovioService.getTempoBPM() ?? 120.0
                             metronome.bpm = bpm
-                            metronome.start()
+                            // Keep metronome playback rate in sync with MIDI player's rate
+                            metronome.playbackRate = midiPlayer.playbackRate
+                            // Start metronome immediately if playback is active (MIDI/visual)
+                            // or if user has disabled MIDI audio for all staves (metronome-only)
+                            if midiPlayer.isPlaying || isVisualPlaying || selectedStavesForPlayback.isEmpty {
+                                metronome.start()
+                            }
                         } else {
                             metronome.stop()
                         }
@@ -402,13 +410,16 @@ struct ContentView: View {
                     .toggleStyle(.button)
                     .help(metronome.isEnabled ? "Disable Metronome" : "Enable Metronome")
                     .onChange(of: metronome.isEnabled) { oldValue, newValue in
-                        if newValue && midiPlayer.isPlaying {
-                            let bpm = verovioService.getTempoBPM() ?? 120.0
-                            metronome.bpm = bpm
-                            metronome.start()
-                        } else {
-                            metronome.stop()
-                        }
+                            if newValue {
+                                let bpm = verovioService.getTempoBPM() ?? 120.0
+                                metronome.bpm = bpm
+                                    metronome.playbackRate = midiPlayer.playbackRate
+                                if midiPlayer.isPlaying || isVisualPlaying || selectedStavesForPlayback.isEmpty {
+                                    metronome.start()
+                                }
+                            } else {
+                                metronome.stop()
+                            }
                     }
 
                     // Metronome mode selector (only show when metronome is enabled)
@@ -680,6 +691,38 @@ struct ContentView: View {
 
     /// Toggle playback based on current mode (MIDI or metronome-only)
     private func togglePlayback() {
+        // Defensive: if user selected no staves for "Play for me", force visual-only playback
+        // and ensure any loaded MIDI is unloaded. This prevents stray MIDI audio.
+        if selectedStavesForPlayback.isEmpty {
+            print("togglePlayback: no staves selected -> applying selection policy")
+            // Ensure MIDI is unloaded
+            midiPlayer.unload()
+
+            if metronome.isEnabled {
+                // If metronome is enabled, start/stop it as the audio source.
+                let wasTickingBefore = metronome.isTicking
+                // Sync bpm
+                let bpm = verovioService.getTempoBPM() ?? 120.0
+                metronome.bpm = bpm
+                if !wasTickingBefore {
+                    // If nothing was playing, start metronome
+                    metronome.start()
+                } else {
+                    // If it was ticking, toggle it off
+                    metronome.stop()
+                }
+            } else {
+                // Visual-only playback when metronome disabled
+                if isVisualPlaying {
+                    stopVisualPlayback()
+                } else {
+                    startVisualPlayback()
+                }
+            }
+
+            return
+        }
+
         // Determine if there is audio to play: either MIDIPlayer has data and a selected-staves
         // MIDI was loaded, or metronome is enabled. If not, we should still advance visuals
         // (silent playback) so users can follow along without sound.
@@ -688,8 +731,7 @@ struct ContentView: View {
             // If metronome is enabled it will produce sound.
             if metronome.isEnabled { return true }
 
-            // If the MIDIPlayer has data and either selected staves are non-empty (we loaded
-            // selected-staves MIDI) or the main MIDI was loaded, consider audio available.
+            // If the MIDIPlayer has data and Verovio has MIDI, consider audio available.
             if midiPlayer.duration > 0 && verovioService.getMIDI().count > 0 { return true }
             return false
         }()
@@ -741,25 +783,39 @@ struct ContentView: View {
     private func startVisualPlayback() {
         // Keep a reference so we can stop it. Advance at 100ms intervals to match the
         // MIDIPlayer timer granularity.
-        isVisualPlaying = true
+        DispatchQueue.main.async {
+            self.isVisualPlaying = true
+        }
         visualPlaybackTimer?.invalidate()
         visualPlaybackTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
-            // Advance currentTime by the timer interval adjusted by playbackRate
-            let delta = 0.1 * TimeInterval(midiPlayer.playbackRate)
-            midiPlayer.currentTime += delta
-            // Cap at duration if known
-            if midiPlayer.duration > 0 && midiPlayer.currentTime >= midiPlayer.duration {
-                midiPlayer.currentTime = 0
-                stopVisualPlayback()
+            // Always perform UI-model mutations on the main queue
+            DispatchQueue.main.async {
+                // Advance currentTime by the timer interval adjusted by playbackRate
+                let delta = 0.1 * TimeInterval(self.midiPlayer.playbackRate)
+                self.midiPlayer.currentTime += delta
+                // Cap at duration if known, otherwise if metronome has a totalDuration use that
+                if (self.midiPlayer.duration > 0 && self.midiPlayer.currentTime >= self.midiPlayer.duration) ||
+                   (self.midiPlayer.duration == 0 && self.metronome.totalDuration > 0 && self.midiPlayer.currentTime >= self.metronome.totalDuration) {
+                    // Reset playback state and ensure UI sees the stopped state immediately
+                    self.midiPlayer.currentTime = 0
+                    // Ensure MIDI player's published playing state is false
+                    self.midiPlayer.isPlaying = false
+                    self.stopVisualPlayback()
+                    if self.metronome.isTicking {
+                        self.metronome.stop()
+                    }
+                }
             }
         }
     }
 
     private func stopVisualPlayback() {
-        isVisualPlaying = false
-        visualPlaybackTimer?.invalidate()
-        visualPlaybackTimer = nil
-        // Ensure the WebView and UI see the paused time; don't reset unless at end
+        DispatchQueue.main.async {
+            self.isVisualPlaying = false
+            self.visualPlaybackTimer?.invalidate()
+            self.visualPlaybackTimer = nil
+            // Ensure the WebView and UI see the paused time; don't reset unless at end
+        }
     }
 
     private func setPlaybackRate(_ rate: Float) {
@@ -804,24 +860,17 @@ struct ContentView: View {
                 print("ContentView.updateMIDISelection: Verovio failed to produce MIDI for selected staves: \(selectedStavesForPlayback)")
             }
         } else {
-            // No selection: reload full MIDI into player and restore prior note-event filtering (first staff)
-            let fullMidiString = verovioService.getMIDI()
-            if !fullMidiString.isEmpty, let fullMidiData = Data(base64Encoded: fullMidiString) {
-                let wasPlaying = midiPlayer.isPlaying
-                do {
-                    try midiPlayer.loadMIDI(data: fullMidiData)
-                    if let filteredMidiString = verovioService.getMIDIForFirstStaff(), let filteredMidiData = Data(base64Encoded: filteredMidiString) {
-                        midiPlayer.loadNoteEventsFromFilteredMIDI(data: filteredMidiData)
-                        metronome.setNoteEvents(midiPlayer.noteEvents)
-                    }
-                    print("ContentView.updateMIDISelection: loaded full MIDI")
-                    if wasPlaying { midiPlayer.play() }
-                } catch {
-                    print("Warning: Failed to reload full MIDI: \(error.localizedDescription)")
-                }
-            } else {
-                print("ContentView.updateMIDISelection: no full MIDI available")
+            // No selection: user explicitly chose no staves -> disable audio playback.
+            // Unload the MIDI data so the player cannot produce sound.
+            midiPlayer.unload()
+
+            // Load filtered note events for metronome (first staff) so metronome features still work
+            if let filteredMidiString = verovioService.getMIDIForFirstStaff(), let filteredMidiData = Data(base64Encoded: filteredMidiString) {
+                midiPlayer.loadNoteEventsFromFilteredMIDI(data: filteredMidiData)
+                metronome.setNoteEvents(midiPlayer.noteEvents)
             }
+
+            print("ContentView.updateMIDISelection: no staves selected — audio unloaded and disabled")
         }
     }
 
@@ -836,38 +885,18 @@ struct ContentView: View {
             let timing = verovioService.getTimingMap()
             timingData = timing
 
-            // Load either full MIDI or filtered MIDI depending on user selection
+            // Delegate MIDI loading to updateMIDISelection so the user's "Play for me"
+            // selection is respected (including the case of an empty selection -> no audio).
             let fullMidiString = verovioService.getMIDI()
             if fullMidiString.isEmpty {
                 print("Warning: Verovio returned empty MIDI string")
-            } else if let fullMidiData = Data(base64Encoded: fullMidiString) {
-                do {
-                    // If user selected staves for playback, prefer that MIDI as the audio source
-                    if !selectedStavesForPlayback.isEmpty, let selectedMidiString = verovioService.getMIDIForStaves(selectedStavesForPlayback), let selectedMidiData = Data(base64Encoded: selectedMidiString) {
-                        try midiPlayer.loadMIDI(data: selectedMidiData)
-                    } else {
-                        try midiPlayer.loadMIDI(data: fullMidiData)
-                    }
-
-                    let bpm = verovioService.getTempoBPM() ?? 120.0
-                    metronome.bpm = bpm
-
-                    // Load filtered note events for solfege mode (first staff only) or use selected staves note events
-                    if !selectedStavesForPlayback.isEmpty, let selectedMidiString = verovioService.getMIDIForStaves(selectedStavesForPlayback), let selectedMidiData = Data(base64Encoded: selectedMidiString) {
-                        midiPlayer.loadNoteEventsFromFilteredMIDI(data: selectedMidiData)
-                        metronome.setNoteEvents(midiPlayer.noteEvents)
-                    } else if let filteredMidiString = verovioService.getMIDIForFirstStaff() {
-                        if let filteredMidiData = Data(base64Encoded: filteredMidiString) {
-                            midiPlayer.loadNoteEventsFromFilteredMIDI(data: filteredMidiData)
-                            metronome.setNoteEvents(midiPlayer.noteEvents)
-                        }
-                    }
-                } catch {
-                    print("Warning: Failed to load MIDI data: \(error.localizedDescription)")
-                    // Continue without MIDI playback
-                }
             } else {
-                print("Warning: Failed to decode base64 MIDI string (length: \(fullMidiString.count))")
+                // Set metronome BPM immediately
+                let bpm = verovioService.getTempoBPM() ?? 120.0
+                metronome.bpm = bpm
+
+                // Apply user's MIDI selection preferences (this will load selected staves or unload audio)
+                updateMIDISelection()
             }
         } catch {
             errorMessage = "Failed to reload score: \(error.localizedDescription)"
@@ -916,35 +945,22 @@ struct ContentView: View {
             let timing = verovioService.getTimingMap()
             timingData = timing
 
-            // Get MIDI data and load into player
-            let midiString = verovioService.getMIDI()
-            if midiString.isEmpty {
-                print("Warning: Verovio returned empty MIDI string")
-            } else if let midiData = Data(base64Encoded: midiString) {
-                do {
-                    try midiPlayer.loadMIDI(data: midiData)
-                    // Set metronome BPM from VerovioService if available
-                    let bpm = verovioService.getTempoBPM() ?? 120.0
-                    metronome.bpm = bpm
+            // Prepare MIDI selection and note events but don't load full MIDI unconditionally.
+            // This ensures audio follows the user's "Play for me" selection (including empty selection -> no audio).
+            let _ = verovioService.getMIDI() // ensure MIDI was generated internally if needed
 
-                    // Load filtered note events for playback. If user selected staves for "Play for me",
-                    // load note events from those staves; otherwise fall back to solfege-first-staff behavior.
-                    if !selectedStavesForPlayback.isEmpty, let selectedMidiString = verovioService.getMIDIForStaves(selectedStavesForPlayback), let selectedMidiData = Data(base64Encoded: selectedMidiString) {
-                        midiPlayer.loadNoteEventsFromFilteredMIDI(data: selectedMidiData)
-                        metronome.setNoteEvents(midiPlayer.noteEvents)
-                    } else if let filteredMidiString = verovioService.getMIDIForFirstStaff() {
-                        if let filteredMidiData = Data(base64Encoded: filteredMidiString) {
-                            midiPlayer.loadNoteEventsFromFilteredMIDI(data: filteredMidiData)
-                            metronome.setNoteEvents(midiPlayer.noteEvents)
-                        }
-                    }
-                } catch {
-                    print("Warning: Failed to load MIDI data: \(error.localizedDescription)")
-                    // Continue without MIDI playback
-                }
-            } else {
-                print("Warning: Failed to decode base64 MIDI string (length: \(midiString.count))")
+            // Initialize 'Play for me' selection: default to all available staves for the loaded score.
+            let allStaveKeys: Set<String> = Set(verovioService.availableStaves.map { (partId, staffNumber, _) in "\(partId)-\(staffNumber)" })
+            if selectedStavesForPlayback.isEmpty {
+                selectedStavesForPlayback = allStaveKeys
             }
+
+            // Set metronome BPM from VerovioService if available
+            let bpm = verovioService.getTempoBPM() ?? 120.0
+            metronome.bpm = bpm
+
+            // Delegate actual MIDI loading to updateMIDISelection which respects the selection policy
+            updateMIDISelection()
 
         } catch {
             errorMessage = "Failed to render MusicXML: \(error.localizedDescription)"

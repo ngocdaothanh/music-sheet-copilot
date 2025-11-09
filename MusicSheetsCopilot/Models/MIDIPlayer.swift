@@ -175,6 +175,19 @@ class MIDIPlayer: ObservableObject {
         isPlaying = false
     }
 
+    /// Unload any loaded MIDI data to disable audio playback
+    func unload() {
+        stop()
+        // Remove references to underlying player and data
+        midiPlayer = nil
+        midiData = nil
+        duration = 0
+        // Keep noteEvents if they were loaded separately via loadNoteEventsFromFilteredMIDI
+        // but clear them to avoid accidental audio-driven behavior if desired.
+        // NOTE: we intentionally don't clear noteEvents here because metronome
+        // may use them; the caller can clear if needed.
+    }
+
     /// Toggle play/pause
     func togglePlayPause() {
         if isPlaying {

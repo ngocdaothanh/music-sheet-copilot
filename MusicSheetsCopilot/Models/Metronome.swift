@@ -370,29 +370,29 @@ class Metronome: ObservableObject {
         // Adjust BPM by playback rate
         let adjustedBPM = bpm * Double(playbackRate)
 
-        // Compute beat duration and prefer a reasonably high update frequency for UI
-        // so that WebView highlighting can update smoothly when metronome-only is running.
-        let beatDuration = 60.0 / adjustedBPM
+        // Compute beat and subdivision durations
+        let subdivisionInterval = 60.0 / (adjustedBPM * Double(max(1, subdivisions)))
 
-        // When MIDI is playing or in solfege mode, we need frequent checks to catch
-        // beat and note boundaries. Otherwise, choose a timer interval that is at most
-        // 50ms (20Hz) to keep highlighting smooth but avoid excessive CPU use.
+        // Prefer using the musical subdivision interval for metronome ticks when
+        // running in metronome-only modes. Reserve the high-frequency short
+        // interval (maxInterval) only for MIDI sync or solfege mode where we need
+        // very frequent checks for UI highlighting or precise note boundaries.
         let maxInterval: TimeInterval = 0.05
 
         let interval: TimeInterval
         if midiPlayer?.isPlaying == true {
-            // Check frequently when MIDI is playing to catch beat boundaries precisely
-            interval = maxInterval
-        } else if mode == .solfege {
-            // Solfege mode also checks frequently to catch note events
-            interval = maxInterval
-        } else if mode == .counting && subdivisions > 1 {
-            // Counting mode with subdivisions: tick at subdivision intervals, but not slower than maxInterval
-            let subdivisionInterval = 60.0 / (adjustedBPM * Double(subdivisions))
+            // When MIDI is playing, poll at high frequency (capped to maxInterval)
             interval = min(maxInterval, subdivisionInterval)
+        } else if mode == .solfege {
+            // Solfege needs frequent checks to catch note events
+            interval = min(maxInterval, subdivisionInterval)
+        } else if mode == .counting && subdivisions > 1 {
+            // Counting with subdivisions: tick exactly at subdivision intervals
+            interval = subdivisionInterval
         } else {
-            // Metronome-only mode: use beat interval but capped to maxInterval for smooth UI updates
-            interval = min(maxInterval, beatDuration)
+            // Metronome-only simple tick/counting: use the beat/subdivision interval
+            // (no extra high-frequency polling) so audio ticks occur at musical tempo.
+            interval = subdivisionInterval
         }
 
         timer = timeProvider.scheduleTimer(interval: interval, repeats: true) { [weak self] in
