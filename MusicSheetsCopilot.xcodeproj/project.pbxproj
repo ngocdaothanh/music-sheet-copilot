@@ -21,6 +21,7 @@
 		E1A013 /* twinkle_twinkle.xml in Resources */ = {isa = PBXBuildFile; fileRef = E1A014 /* twinkle_twinkle.xml */; };
 		E1A034 /* VerovioToolkit in Frameworks */ = {isa = PBXBuildFile; productRef = E1A035 /* VerovioToolkit */; };
 		E1A037 /* VerovioService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A038 /* VerovioService.swift */; };
+		F41359D72EC10A360061A20E /* NoteNameMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = F41359D62EC10A360061A20E /* NoteNameMode.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -50,6 +51,7 @@
 		E1A015 /* MusicSheetsCopilot.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MusicSheetsCopilot.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E1A016 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		E1A038 /* VerovioService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerovioService.swift; sourceTree = "<group>"; };
+		F41359D62EC10A360061A20E /* NoteNameMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteNameMode.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -122,6 +124,7 @@
 				73AD151F2EB9BF3D00478D55 /* Metronome.swift */,
 				73AD151D2EB9B16A00478D55 /* MIDIPlayer.swift */,
 				73AD15202EB9C00000478D55 /* MXLDecompressor.swift */,
+				F41359D62EC10A360061A20E /* NoteNameMode.swift */,
 				737158F52EBB941000645726 /* TimeProvider.swift */,
 				E1A038 /* VerovioService.swift */,
 			);
@@ -267,6 +270,7 @@
 				73AD151C2EB9A8F400478D55 /* MultiPageSVGMusicSheetView.swift in Sources */,
 				E1A001 /* MusicSheetsCopilotApp.swift in Sources */,
 				E1A037 /* VerovioService.swift in Sources */,
+				F41359D72EC10A360061A20E /* NoteNameMode.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

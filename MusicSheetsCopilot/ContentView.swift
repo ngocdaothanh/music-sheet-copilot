@@ -24,6 +24,7 @@ struct ContentView: View {
     // and metronome disabled) we advance the visual position via a timer.
     @State private var visualPlaybackTimer: Timer?
     @State private var isVisualPlaying: Bool = false
+    @State private var noteNameMode: NoteNameMode = .none
 
     init() {
         // Can't set metronome.midiPlayer in init with @StateObject
@@ -45,7 +46,8 @@ struct ContentView: View {
                     // Use metronome time only when metronome is enabled AND MIDI is not playing.
                     // When MIDI is playing, prefer the MIDI player's time for precise highlighting.
                     currentTimeOverride: (metronome.isEnabled && !midiPlayer.isPlaying) ? metronome.currentTime : nil,
-                    isPlayingOverride: (metronome.isEnabled && !midiPlayer.isPlaying) ? metronome.isTicking : (isVisualPlaying ? true : nil)
+                    isPlayingOverride: (metronome.isEnabled && !midiPlayer.isPlaying) ? metronome.isTicking : (isVisualPlaying ? true : nil),
+                    noteNameMode: noteNameMode
                 )
                     .environmentObject(verovioService)
                     .environmentObject(midiPlayer)
@@ -355,6 +357,35 @@ struct ContentView: View {
                         }
                     }
 
+                        // Note name display mode (None / Letter / Solfege)
+                        Menu {
+                            Button(action: { noteNameMode = .none }) {
+                                HStack {
+                                    if noteNameMode == .none { Image(systemName: "checkmark") }
+                                    Text("None")
+                                }
+                            }
+                            Button(action: { noteNameMode = .letter }) {
+                                HStack {
+                                    if noteNameMode == .letter { Image(systemName: "checkmark") }
+                                    Text("Letter")
+                                }
+                            }
+                            Button(action: { noteNameMode = .solfege }) {
+                                HStack {
+                                    if noteNameMode == .solfege { Image(systemName: "checkmark") }
+                                    Text("Solfege")
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "textformat")
+                                Text(noteNameMode.title)
+                                    .font(.caption)
+                            }
+                        }
+                        .help("Toggle note name overlays on the score")
+
                     Divider()
 
                     // Tempo adjustment with BPM display
@@ -655,6 +686,19 @@ struct ContentView: View {
                             .font(.title2)
                     }
                     .help(getPlayButtonHelp())
+
+                    // Visible Note Names button for macOS: shows current mode and cycles modes on click
+                    Button(action: {
+                        // Cycle through modes for quick access on macOS
+                        switch noteNameMode {
+                        case .none: noteNameMode = .letter
+                        case .letter: noteNameMode = .solfege
+                        case .solfege: noteNameMode = .none
+                        }
+                    }) {
+                        Text("Note Names: \(noteNameMode.title)")
+                    }
+                    .help("Cycle Note Name display modes: None → Letter → Solfege")
                 }
             }
         }

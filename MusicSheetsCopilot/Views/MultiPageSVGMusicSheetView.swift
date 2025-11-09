@@ -1,5 +1,11 @@
 import SwiftUI
 import WebKit
+// FoundationXML is available on some toolchains as a separate module. Prefer conditional import
+#if canImport(FoundationXML)
+import FoundationXML
+#else
+import Foundation
+#endif
 
 /// SwiftUI view that displays multiple pages of SVG music notation vertically
 struct MultiPageSVGMusicSheetView: View {
@@ -11,6 +17,7 @@ struct MultiPageSVGMusicSheetView: View {
     let currentTimeOverride: TimeInterval?
     let isPlayingOverride: Bool?
     @EnvironmentObject var verovioService: VerovioService
+    let noteNameMode: NoteNameMode
 
     var body: some View {
     // Use overrides if provided by parent; otherwise default to MIDI player's values
@@ -18,7 +25,7 @@ struct MultiPageSVGMusicSheetView: View {
     let isPlaying = isPlayingOverride ?? midiPlayer.isPlaying
 
         // Remove outer ScrollView to avoid double scrolling, let WKWebView handle scrolling
-        CombinedSVGWebView(svgPages: svgPages, timingData: timingData, currentTime: currentTime, isPlaying: isPlaying, metronome: metronome)
+        CombinedSVGWebView(svgPages: svgPages, timingData: timingData, currentTime: currentTime, isPlaying: isPlaying, metronome: metronome, noteNameMode: noteNameMode)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
@@ -32,13 +39,14 @@ struct CombinedSVGWebView: View {
     @EnvironmentObject var verovioService: VerovioService
     @EnvironmentObject var midiPlayer: MIDIPlayer
     @ObservedObject var metronome: Metronome
+    let noteNameMode: NoteNameMode
 
     var body: some View {
         #if os(macOS)
-        CombinedSVGWebViewMac(svgPages: svgPages, timingData: timingData, currentTime: currentTime, isPlaying: isPlaying, metronome: metronome)
+        CombinedSVGWebViewMac(svgPages: svgPages, timingData: timingData, currentTime: currentTime, isPlaying: isPlaying, metronome: metronome, noteNameMode: noteNameMode)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         #else
-        CombinedSVGWebViewiOS(svgPages: svgPages, timingData: timingData, currentTime: currentTime, isPlaying: isPlaying, metronome: metronome)
+        CombinedSVGWebViewiOS(svgPages: svgPages, timingData: timingData, currentTime: currentTime, isPlaying: isPlaying, metronome: metronome, noteNameMode: noteNameMode)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         #endif
     }
@@ -53,6 +61,7 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
     @EnvironmentObject var verovioService: VerovioService
     @EnvironmentObject var midiPlayer: MIDIPlayer
     @ObservedObject var metronome: Metronome
+    let noteNameMode: NoteNameMode
 
     func makeNSView(context: Context) -> WKWebView {
     let config = WKWebViewConfiguration()
@@ -74,7 +83,15 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
 
         // Only reload HTML if pages changed (not on every time update)
         if context.coordinator.currentPages != svgPages {
-            let html = createHTML(svgPages: svgPages, timingData: timingData)
+            let annotatedPages = annotateSVGPages(svgPages: svgPages, timingData: timingData, midiEvents: midiPlayer.noteEvents)
+            let html = createHTML(svgPages: annotatedPages, timingData: timingData, noteNameMode: noteNameMode.rawValue)
+            // Diagnostic logging: print a short snippet and counts of injected attributes so we can confirm annotation
+            do {
+                let snippet = String(html.prefix(2048))
+                let dataMidiCount = html.components(separatedBy: "data-midi=").count - 1
+                let dataNoteNameCount = html.components(separatedBy: "data-note-name=").count - 1
+                print("[DEBUG] Annotated HTML snippet (first 2KB):\n\(snippet)\n---\n[data-midi] count: \(dataMidiCount), [data-note-name] count: \(dataNoteNameCount)")
+            }
             webView.loadHTMLString(html, baseURL: nil)
             context.coordinator.currentPages = svgPages
         }
@@ -92,6 +109,14 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
             // Clear highlighting when stopped at beginning
             webView.evaluateJavaScript("clearPlaybackHighlight();", completionHandler: nil)
         }
+        // If the note name mode changed since last render, update labels in-place without reloading HTML
+        let desiredMode = noteNameMode.rawValue
+        if context.coordinator.lastNoteNameMode != desiredMode {
+            // Update lastNoteNameMode immediately to avoid duplicate calls
+            context.coordinator.lastNoteNameMode = desiredMode
+            let script = "try { clearNoteNameLabels(); insertNoteNames('\(desiredMode)'); logAnnotatedElements(); } catch(e) { logToSwiftSide('[update] noteNameMode eval error ' + e); }"
+            webView.evaluateJavaScript(script, completionHandler: nil)
+        }
     }
 
     func makeCoordinator() -> Coordinator {
@@ -100,6 +125,7 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
 
     class Coordinator: NSObject, WKScriptMessageHandler {
         var currentPages: [String] = []
+        var lastNoteNameMode: String? = nil
         weak var verovioService: VerovioService?
         weak var midiPlayer: MIDIPlayer?
         weak var metronome: Metronome?
@@ -157,7 +183,7 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
         }
     }
 
-    private func createHTML(svgPages: [String], timingData: String) -> String {
+    private func createHTML(svgPages: [String], timingData: String, noteNameMode: String) -> String {
         let svgContent = svgPages.enumerated().map { index, svg in
             let pageLabel = svgPages.count > 1 ? "<div class=\"page-label\">Page \(index + 1)</div>" : ""
             return """
@@ -222,6 +248,8 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
             <script>
                 // Parse Verovio timing data
                 const timingData = \(timingData);
+                // Note name mode forwarded from Swift
+                const noteNameMode = "\(noteNameMode)";
                 // Utility to forward logs to the Swift side. IMPORTANT: for logging, instead of calling
                 // `console.log`, JS should call `logToSwiftSide(...)` so Swift can capture logs in Xcode.
                 function logToSwiftSide(...args) {
@@ -238,6 +266,215 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                     } catch(e) {
                         console.log('logToSwiftSide error', e, args);
                     }
+                }
+
+                // Insert note name labels above noteheads when requested.
+                // Expects parent note elements to have data-note-name or data-midi attributes (injected by Swift annotation).
+                function insertNoteNames(mode) {
+                    try {
+                        if (!mode || mode === 'none') return;
+                        // Avoid inserting duplicates by checking for an existing label
+                        if (document.querySelectorAll('.note-name-label').length > 0) return;
+
+                        function clientToSVGPoint(svg, clientX, clientY) {
+                            try {
+                                const pt = svg.createSVGPoint();
+                                pt.x = clientX; pt.y = clientY;
+                                const ctm = svg.getScreenCTM();
+                                if (!ctm) return { x: clientX, y: clientY };
+                                const inv = ctm.inverse();
+                                const p = pt.matrixTransform(inv);
+                                return { x: p.x, y: p.y };
+                            } catch (e) { return { x: clientX, y: clientY }; }
+                        }
+
+                        // Use the annotated elements directly (elements that Swift injected attributes onto)
+                        const annotatedEls = Array.from(document.querySelectorAll('[data-note-name], [data-midi]'));
+                        logToSwiftSide('[insertNoteNames] annotated elements found:', annotatedEls.length);
+
+                        let inserted = 0;
+                        annotatedEls.forEach((el, idx) => {
+                            try {
+                                const anchor = el.closest('g.note') || el;
+                                const svg = anchor && (anchor.ownerSVGElement || document.querySelector('svg'));
+                                if (!svg) return;
+
+                                // Compute position: place label to the right of the note and align to the bottom of the note.
+                                let x = 0, y = 0;
+                                try {
+                                    // Prefer the actual notehead element inside the group (common patterns: <use>, <ellipse>, <circle>, <path>)
+                                    let notehead = null;
+                                    let bestBBox = null;
+                                    try {
+                                        const candidates = anchor.querySelectorAll('use, ellipse, circle, path, rect');
+                                        // Score candidates by area and squareness (prefer notehead-like shapes)
+                                        let bestScore = -Infinity;
+                                        const debugCandidates = [];
+                                        candidates.forEach(c => {
+                                            try {
+                                                const b = c.getBBox();
+                                                if (b && b.width > 0 && b.height > 0) {
+                                                    const area = b.width * b.height;
+                                                    const aspect = b.width / b.height;
+                                                    // score: prefer moderate area and aspect ratio near 1 (square/oval)
+                                                    const aspectScore = 1 - Math.abs(Math.log(aspect));
+                                                    const score = Math.log(area + 1) * aspectScore;
+                                                    // also capture client rect if available for more robust placement
+                                                    let crect = null;
+                                                    try { const r = c.getBoundingClientRect(); crect = {left: r.left, top: r.top, width: r.width, height: r.height}; } catch(e) {}
+                                                    debugCandidates.push({ tag: c.tagName, id: c.id || null, bbox: {x: b.x, y: b.y, width: b.width, height: b.height}, clientRect: crect, area: area, aspect: aspect, score: score });
+                                                    if (score > bestScore) {
+                                                        bestScore = score;
+                                                        bestBBox = b;
+                                                        notehead = c;
+                                                    }
+                                                }
+                                            } catch (e) { /* ignore bbox errors */ }
+                                        });
+                                        if (debugCandidates.length > 0) {
+                                            logToSwiftSide('[insertNoteNames] candidates for element', idx, 'count:', debugCandidates.length, JSON.stringify(debugCandidates.slice(0,8)));
+                                        }
+                                    } catch(e) { /* ignore query errors */ }
+
+                                    const bb = bestBBox || anchor.getBBox();
+                                    // Prefer to compute placement from client bounding rect transformed into SVG coordinates
+                                    let placedFromClient = false;
+                                    try {
+                                        if (notehead && notehead.getBoundingClientRect) {
+                                            const cr = notehead.getBoundingClientRect();
+                                            const right = cr.left + cr.width;
+                                            const pRight = clientToSVGPoint(svg, right + Math.max(6, cr.width * 0.2), cr.top + cr.height / 2);
+                                            x = pRight.x;
+                                            y = pRight.y;
+                                            placedFromClient = true;
+                                        }
+                                    } catch(e) { placedFromClient = false; }
+                                    if (!placedFromClient) {
+                                        // Fallback to SVG bbox
+                                        const offset = Math.max(6, bb.width * 0.2);
+                                        x = bb.x + bb.width + offset;
+                                        y = bb.y + bb.height / 2;
+                                    }
+                                    logToSwiftSide('[insertNoteNames] chosen candidate for element', idx, 'notehead=', notehead ? (notehead.id || notehead.tagName) : null, 'usedClient=', placedFromClient, 'bb=', {x: bb.x, y: bb.y, w: bb.width, h: bb.height}, '-> x=', x, 'y=', y);
+                                } catch (e) {
+                                    const rect = anchor.getBoundingClientRect ? anchor.getBoundingClientRect() : null;
+                                    if (rect) {
+                                        const right = rect.left + rect.width;
+                                        const p = clientToSVGPoint(svg, right, rect.top + rect.height / 2);
+                                        x = p.x + Math.max(6, rect.width * 0.2);
+                                        y = p.y;
+                                    }
+                                }
+
+                                const nameAttr = el.getAttribute('data-note-name') || el.getAttribute('data-midi');
+                                if (!nameAttr) return;
+
+                                let label = nameAttr;
+                                if (mode === 'letter') {
+                                    const m = parseInt(nameAttr);
+                                    if (!isNaN(m)) label = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'][m % 12];
+                                } else if (mode === 'solfege') {
+                                    const m = parseInt(nameAttr);
+                                    if (!isNaN(m)) label = ['Doh','Doh','Reh','Reh','Mee','Fa','Fa','Sol','Sol','La','La','Si'][m % 12];
+                                }
+
+                                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                                text.setAttribute('x', x);
+                                text.setAttribute('y', y);
+                                text.setAttribute('class', 'note-name-label');
+                                // Align label to the right-hand side of the notehead and center vertically on it
+                                text.setAttribute('text-anchor', 'start');
+                                text.setAttribute('dominant-baseline', 'middle');
+                                // Much larger, bold label and explicit font to be readable on most sheet renderings
+                                // Scale is now halved from the previous very large size
+                                text.setAttribute('font-size', '180');
+                                text.setAttribute('font-family', '-apple-system, system-ui, Arial, sans-serif');
+                                text.setAttribute('font-weight', '700');
+                                // Add a stronger stroke so the label is visible on both light and dark backgrounds
+                                const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                                text.setAttribute('fill', isDark ? 'white' : 'black');
+                                text.setAttribute('stroke', isDark ? 'black' : 'white');
+                                // Stroke sized for current font
+                                text.setAttribute('stroke-width', '3');
+                                text.setAttribute('paint-order', 'stroke fill');
+                                text.style.pointerEvents = 'none';
+                                text.textContent = label;
+                                // Append label in the correct coordinate space:
+                                // - If placedFromClient (we used client->SVG conversion), x/y are in root SVG coords -> append to root svg
+                                // - Otherwise append inside anchor so text coordinates are local
+                                try {
+                                    if (placedFromClient) {
+                                        svg.appendChild(text);
+                                        try {
+                                            const tb = text.getBBox();
+                                            const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+                                            rect.setAttribute('x', tb.x - 8);
+                                            rect.setAttribute('y', tb.y - 6);
+                                            rect.setAttribute('width', tb.width + 16);
+                                            rect.setAttribute('height', tb.height + 12);
+                                            rect.setAttribute('rx', '4');
+                                            rect.setAttribute('fill', isDark ? 'black' : 'white');
+                                            rect.setAttribute('opacity', '0.95');
+                                            rect.setAttribute('class', 'note-name-bg');
+                                            svg.insertBefore(rect, text);
+                                        } catch (e) { /* ignore */ }
+                                    } else {
+                                        if (anchor && anchor.tagName && anchor.tagName.toLowerCase() === 'g') {
+                                            anchor.appendChild(text);
+                                            try {
+                                                const tb = text.getBBox();
+                                                const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+                                                rect.setAttribute('x', tb.x - 8);
+                                                rect.setAttribute('y', tb.y - 6);
+                                                rect.setAttribute('width', tb.width + 16);
+                                                rect.setAttribute('height', tb.height + 12);
+                                                rect.setAttribute('rx', '4');
+                                                rect.setAttribute('fill', isDark ? 'black' : 'white');
+                                                rect.setAttribute('opacity', '0.95');
+                                                rect.setAttribute('class', 'note-name-bg');
+                                                anchor.insertBefore(rect, text);
+                                            } catch (e) { /* ignore */ }
+                                        } else {
+                                            svg.appendChild(text);
+                                        }
+                                    }
+                                } catch (e) {
+                                    if (svg) svg.appendChild(text);
+                                }
+                                inserted++;
+                                if (inserted < 6) logToSwiftSide('[insertNoteNames] inserted label', label, 'at', x, y);
+                            } catch (e) {
+                                logToSwiftSide('[insertNoteNames] error creating label', String(e));
+                            }
+                        });
+                        logToSwiftSide('[insertNoteNames] total inserted:', inserted);
+                    } catch (e) { logToSwiftSide('[insertNoteNames] error', String(e)); }
+                }
+                function logAnnotatedElements() {
+                    try {
+                        const annotated = [];
+                        // Find elements with data-note-name or data-midi
+                        document.querySelectorAll('[data-note-name], [data-midi]').forEach(el => {
+                            const id = el.id || el.getAttribute('id') || null;
+                            const dn = el.getAttribute('data-note-name');
+                            const dm = el.getAttribute('data-midi');
+                            annotated.push({ id: id, noteName: dn, midi: dm, tag: el.tagName, cls: el.getAttribute('class') });
+                        });
+                        logToSwiftSide('[logAnnotatedElements] annotatedCount:', annotated.length);
+                        if (annotated.length > 0) {
+                            // Send only a small sample
+                            logToSwiftSide('[logAnnotatedElements] sample:', annotated.slice(0, 8));
+                        }
+                    } catch(e) { logToSwiftSide('[logAnnotatedElements] error', String(e)); }
+                }
+                function clearNoteNameLabels() {
+                    try {
+                        const labels = document.querySelectorAll('.note-name-label');
+                        const bgs = document.querySelectorAll('.note-name-bg');
+                        labels.forEach(e => e.remove());
+                        bgs.forEach(e => e.remove());
+                        logToSwiftSide('[clearNoteNameLabels] removed', labels.length, 'labels and', bgs.length, 'backgrounds');
+                    } catch(e) { logToSwiftSide('[clearNoteNameLabels] error', String(e)); }
                 }
                 // Utility to forward logs to the Swift side. IMPORTANT: for logging, instead of calling
                 // `console.log`, JS should call `logToSwiftSide(...)` so Swift can capture logs in Xcode.
@@ -305,6 +542,9 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                 window.addEventListener('load', function() {
                     // Signal to Swift that the webview finished loading
                     logToSwiftSide('[load] WebView loaded and handlers set up');
+
+                    // Insert note names if requested
+                    try { insertNoteNames(noteNameMode); logAnnotatedElements(); } catch(e) {}
 
                     // Add handlers for all elements that have IDs in our timing data
                     if (timingData && Array.isArray(timingData)) {
@@ -403,6 +643,7 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
     @EnvironmentObject var verovioService: VerovioService
     @EnvironmentObject var midiPlayer: MIDIPlayer
     @ObservedObject var metronome: Metronome
+    let noteNameMode: NoteNameMode
 
     func makeUIView(context: Context) -> WKWebView {
     let config = WKWebViewConfiguration()
@@ -432,7 +673,13 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
 
         // Only reload HTML if pages changed
         if context.coordinator.currentPages != svgPages {
-            let html = createHTML(svgPages: svgPages, timingData: timingData)
+            let annotatedPages = annotateSVGPages(svgPages: svgPages, timingData: timingData, midiEvents: midiPlayer?.noteEvents ?? [])
+            let html = createHTML(svgPages: annotatedPages, timingData: timingData, noteNameMode: noteNameMode.rawValue)
+            // Diagnostic logging: print a short snippet and counts of injected attributes so we can confirm annotation
+            let snippet = String(html.prefix(2048))
+            let dataMidiCount = html.components(separatedBy: "data-midi=").count - 1
+            let dataNoteNameCount = html.components(separatedBy: "data-note-name=").count - 1
+            print("[DEBUG] Annotated HTML snippet (first 2KB):\n\(snippet)\n---\n[data-midi] count: \(dataMidiCount), [data-note-name] count: \(dataNoteNameCount)")
             webView.loadHTMLString(html, baseURL: nil)
             context.coordinator.currentPages = svgPages
         }
@@ -449,6 +696,13 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
         } else {
             webView.evaluateJavaScript("clearPlaybackHighlight();", completionHandler: nil)
         }
+        // If the note name mode changed since last render, update labels in-place without reloading HTML
+        let desiredMode = noteNameMode.rawValue
+        if context.coordinator.lastNoteNameMode != desiredMode {
+            context.coordinator.lastNoteNameMode = desiredMode
+            let script = "try { clearNoteNameLabels(); insertNoteNames('\(desiredMode)'); logAnnotatedElements(); } catch(e) { console.log('[update] noteNameMode eval error', e); }"
+            webView.evaluateJavaScript(script, completionHandler: nil)
+        }
     }
 
     func makeCoordinator() -> Coordinator {
@@ -457,6 +711,7 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
 
     class Coordinator: NSObject, WKScriptMessageHandler {
         var currentPages: [String] = []
+        var lastNoteNameMode: String? = nil
         weak var verovioService: VerovioService?
         weak var midiPlayer: MIDIPlayer?
         weak var metronome: Metronome?
@@ -536,7 +791,7 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
         }
     }
 
-    private func createHTML(svgPages: [String], timingData: String) -> String {
+    private func createHTML(svgPages: [String], timingData: String, noteNameMode: String) -> String {
         let svgContent = svgPages.enumerated().map { index, svg in
             let pageLabel = svgPages.count > 1 ? "<div class=\"page-label\">Page \(index + 1)</div>" : ""
             return """
@@ -601,6 +856,8 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
             <script>
                 // Parse Verovio timing data
                 const timingData = \(timingData);
+                // Note name mode forwarded from Swift
+                const noteNameMode = "\(noteNameMode)";
                 let currentHighlightedElements = [];
 
                 function updatePlaybackHighlight(timeMs) {
@@ -654,6 +911,9 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
                 window.addEventListener('load', function() {
                     logToSwiftSide('[load] WebView loaded and handlers set up');
                     logToSwiftSide('Setting up click handlers for notes');
+
+                    // Insert note names if requested
+                    try { insertNoteNames(noteNameMode); logAnnotatedElements(); } catch(e) {}
 
                     // Add handlers for all elements that have IDs in our timing data
                     if (timingData && Array.isArray(timingData)) {
@@ -718,3 +978,82 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
     }
 }
 #endif
+
+// MARK: - SVG annotation helper
+fileprivate func annotateSVGPages(svgPages: [String], timingData: String, midiEvents: [(time: TimeInterval, midiNote: UInt8, channel: UInt8)]) -> [String] {
+    guard let data = timingData.data(using: .utf8),
+          let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+        return svgPages
+    }
+
+    // Build a mapping from element id -> midi note (best-effort)
+    var idToMidi: [String: UInt8] = [:]
+
+    // Sort midi events by time
+    let sortedMidi = midiEvents.sorted { $0.time < $1.time }
+
+    for entry in arr {
+        guard let tstamp = entry["tstamp"] as? Double else { continue }
+        let timeSec = tstamp / 1000.0
+        if let onArray = entry["on"] as? [String] {
+            for id in onArray {
+                // find closest midi event
+                if let closest = sortedMidi.min(by: { abs($0.time - timeSec) < abs($1.time - timeSec) }), abs(closest.time - timeSec) < 0.15 {
+                    idToMidi[id] = closest.midiNote
+                }
+            }
+        }
+    }
+
+    func midiToName(_ midi: UInt8) -> String {
+        let names = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
+        return names[Int(midi) % 12]
+    }
+
+    var result: [String] = []
+    for svg in svgPages {
+        // Try robust XML-based injection first. If parsing fails, fall back to string replacement.
+        if let data = svg.data(using: .utf8) {
+            do {
+                let xmlDoc = try XMLDocument(data: data, options: .nodePreserveAll)
+
+                for (id, midi) in idToMidi {
+                    let noteName = midiToName(midi)
+                    // Use XPath to find any element with matching id attribute
+                    let xpath = "//*[@id='\(id)']"
+                    if let nodes = try xmlDoc.nodes(forXPath: xpath) as? [XMLNode], !nodes.isEmpty {
+                        for node in nodes {
+                            if let element = node as? XMLElement {
+                                element.addAttribute(XMLNode.attribute(withName: "data-midi", stringValue: "\(midi)") as! XMLNode)
+                                element.addAttribute(XMLNode.attribute(withName: "data-note-name", stringValue: noteName) as! XMLNode)
+                            }
+                        }
+                    } else {
+                        // No nodes found for this id in the parsed XML; continue — we may fall back later
+                    }
+                }
+
+                // Export annotated XML back to string
+                let annotated = xmlDoc.xmlString(options: .nodePreserveAll)
+                result.append(annotated)
+                continue
+            } catch {
+                // Parsing failed; will perform string replacement fallback below
+            }
+        }
+
+        // Fallback: best-effort string replacement (previous behavior)
+        var annotated = svg
+        for (id, midi) in idToMidi {
+            let search = "id=\"\(id)\""
+            if annotated.contains(search) {
+                let noteName = midiToName(midi)
+                let replacement = "id=\"\(id)\" data-midi=\"\(midi)\" data-note-name=\"\(noteName)\""
+                annotated = annotated.replacingOccurrences(of: search, with: replacement)
+            }
+        }
+        result.append(annotated)
+    }
+
+    return result
+}
