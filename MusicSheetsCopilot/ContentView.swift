@@ -137,19 +137,83 @@ struct ContentView: View {
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 if svgPages != nil {
-                    // Play/Pause button
-                    Button(action: {
-                        togglePlayback()
-                    }) {
-                        let isAnyPlaying = midiPlayer.isPlaying || isVisualPlaying
-                        Image(systemName: isAnyPlaying ? "pause.circle.fill" : "play.circle.fill")
-                            .font(.title2)
+                    // Demo menu (Load demos)
+                    Menu {
+                        Button("Twinkle Twinkle Little Star") {
+                            loadDemoFile(named: "twinkle_twinkle")
+                        }
+                        Button("Für Elise (Easy Piano)") {
+                            loadDemoFile(named: "fur_elise")
+                        }
+                    } label: {
+                        Text("Demo")
                     }
-                    .help(getPlayButtonHelp())
+                    .buttonStyle(.bordered)
 
                     Divider()
 
-                    // Metronome toggle (always available)
+                    // Open File
+                    Button("Open File...") {
+                        isImporting = true
+                    }
+                    .buttonStyle(.bordered)
+
+                    Divider()
+
+                    // "Play for me" selector: choose staves to include in MIDI playback
+                    if verovioService.availableStaves.count > 0 {
+                        Menu {
+                            ForEach(verovioService.availableStaves.indices, id: \.self) { index in
+                                let (partId, staffNumber, staffName) = verovioService.availableStaves[index]
+                                let staveKey = "\(partId)-\(staffNumber)"
+                                Button(action: {
+                                    if selectedStavesForPlayback.contains(staveKey) {
+                                        selectedStavesForPlayback.remove(staveKey)
+                                    } else {
+                                        selectedStavesForPlayback.insert(staveKey)
+                                    }
+                                }) {
+                                    HStack {
+                                        if selectedStavesForPlayback.contains(staveKey) {
+                                            Image(systemName: "checkmark")
+                                        }
+                                        Text(staffName)
+                                    }
+                                }
+                            }
+
+                        } label: {
+                            HStack {
+                                Image(systemName: "play.circle")
+                            }
+                        }
+                        .help("Play for me: select which staves to include in MIDI playback")
+
+                        Divider()
+                    } else if verovioService.availableParts.count > 1 {
+                        // Parts selector (fallback)
+                        Menu {
+                            ForEach(verovioService.availableParts, id: \.0) { partId, partName in
+                                Button(action: {
+                                    togglePart(partId)
+                                }) {
+                                    HStack {
+                                        if verovioService.enabledPartIds.contains(partId) {
+                                            Image(systemName: "checkmark")
+                                        }
+                                        Text(partName)
+                                    }
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "music.note.list")
+                        }
+                        .help("Select Parts")
+
+                        Divider()
+                    }
+
+                    // Metronome toggle and mode menus
                     Toggle(isOn: $metronome.isEnabled) {
                         Image(systemName: "metronome")
                     }
@@ -161,8 +225,6 @@ struct ContentView: View {
                             metronome.bpm = bpm
                             // Keep metronome playback rate in sync with MIDI player's rate
                             metronome.playbackRate = midiPlayer.playbackRate
-                            // Start metronome immediately if playback is active (MIDI/visual)
-                            // or if user has disabled MIDI audio for all staves (metronome-only)
                             if midiPlayer.isPlaying || isVisualPlaying || selectedStavesForPlayback.isEmpty {
                                 metronome.start()
                             }
@@ -171,7 +233,6 @@ struct ContentView: View {
                         }
                     }
 
-                    // Metronome mode selector (only show when metronome is enabled)
                     if metronome.isEnabled {
                         Menu {
                             Button {
@@ -182,51 +243,34 @@ struct ContentView: View {
                                 }
                             } label: {
                                 HStack {
-                                    if metronome.mode == .tick {
-                                        Image(systemName: "checkmark")
-                                    }
+                                    if metronome.mode == .tick { Image(systemName: "checkmark") }
                                     Text("Tick")
                                 }
                             }
                             Button {
                                 metronome.mode = .counting
-                                if metronome.isTicking {
-                                    metronome.stop()
-                                    metronome.start()
-                                }
+                                if metronome.isTicking { metronome.stop(); metronome.start() }
                             } label: {
                                 HStack {
-                                    if metronome.mode == .counting {
-                                        Image(systemName: "checkmark")
-                                    }
+                                    if metronome.mode == .counting { Image(systemName: "checkmark") }
                                     Text("Count (1-2-3-4)")
                                 }
                             }
                             Button {
                                 metronome.mode = .letter
-                                if metronome.isTicking {
-                                    metronome.stop()
-                                    metronome.start()
-                                }
+                                if metronome.isTicking { metronome.stop(); metronome.start() }
                             } label: {
                                 HStack {
-                                    if metronome.mode == .letter {
-                                        Image(systemName: "checkmark")
-                                    }
+                                    if metronome.mode == .letter { Image(systemName: "checkmark") }
                                     Text("Letter (C-D-E)")
                                 }
                             }
                             Button {
                                 metronome.mode = .solfege
-                                if metronome.isTicking {
-                                    metronome.stop()
-                                    metronome.start()
-                                }
+                                if metronome.isTicking { metronome.stop(); metronome.start() }
                             } label: {
                                 HStack {
-                                    if metronome.mode == .solfege {
-                                        Image(systemName: "checkmark")
-                                    }
+                                    if metronome.mode == .solfege { Image(systemName: "checkmark") }
                                     Text("Solfege (Do-Re-Mi)")
                                 }
                             }
@@ -246,7 +290,6 @@ struct ContentView: View {
                         }
                         .help("Metronome Mode")
 
-                        // Subdivision selector (only show for counting mode) - iOS
                         if metronome.mode == .counting {
                             Menu {
                                 Button {
@@ -263,6 +306,7 @@ struct ContentView: View {
                                         Text("Quarter Notes")
                                     }
                                 }
+
                                 Button {
                                     metronome.subdivisions = 2
                                     if metronome.isTicking {
@@ -277,6 +321,7 @@ struct ContentView: View {
                                         Text("Eighth Notes (+ and)")
                                     }
                                 }
+
                                 Button {
                                     metronome.subdivisions = 4
                                     if metronome.isTicking {
@@ -313,9 +358,7 @@ struct ContentView: View {
                     Divider()
 
                     // Tempo adjustment with BPM display
-                    Button(action: {
-                        showTempoPopover.toggle()
-                    }) {
+                    Button(action: { showTempoPopover.toggle() }) {
                         HStack(spacing: 4) {
                             Image(systemName: "metronome.fill")
                             let baseBPM = verovioService.getTempoBPM() ?? 120.0
@@ -324,6 +367,43 @@ struct ContentView: View {
                         }
                     }
                     .help("Adjust Tempo")
+
+                    Divider()
+
+                    // Play/Pause button (moved to right-most position)
+                    Button(action: { togglePlayback() }) {
+                        let isAnyPlaying = midiPlayer.isPlaying || isVisualPlaying
+                        Image(systemName: isAnyPlaying ? "pause.circle.fill" : "play.circle.fill")
+                            .font(.title2)
+                    }
+                    .help(getPlayButtonHelp())
+                }
+            }
+        }
+        #else
+        .toolbar {
+            ToolbarItemGroup(placement: .automatic) {
+                if svgPages != nil {
+                    // Demo menu (first)
+                    Menu {
+                        Button("Twinkle Twinkle Little Star") {
+                            loadDemoFile(named: "twinkle_twinkle")
+                        }
+                        Button("Für Elise (Easy Piano)") {
+                            loadDemoFile(named: "fur_elise")
+                        }
+                    } label: {
+                        Text("Demo")
+                    }
+                    .buttonStyle(.bordered)
+
+                    Divider()
+
+                    // Open File
+                    Button("Open File...") {
+                        isImporting = true
+                    }
+                    .buttonStyle(.bordered)
 
                     Divider()
 
@@ -358,7 +438,7 @@ struct ContentView: View {
 
                         Divider()
                     }
-                    // Parts selector (only show if multiple parts available)
+                    // Parts selector (fallback)
                     else if verovioService.availableParts.count > 1 {
                         Menu {
                             ForEach(verovioService.availableParts, id: \.0) { partId, partName in
@@ -381,29 +461,7 @@ struct ContentView: View {
                         Divider()
                     }
 
-                    Button("Load MusicXML file") {
-                        isImporting = true
-                    }
-                }
-            }
-        }
-        #else
-        .toolbar {
-            ToolbarItemGroup(placement: .automatic) {
-                if svgPages != nil {
-                    // Play/Pause button
-                    Button(action: {
-                        togglePlayback()
-                    }) {
-                        let isAnyPlaying = midiPlayer.isPlaying || isVisualPlaying
-                        Image(systemName: isAnyPlaying ? "pause.circle.fill" : "play.circle.fill")
-                            .font(.title2)
-                    }
-                    .help(getPlayButtonHelp())
-
-                    Divider()
-
-                    // Metronome toggle (always available)
+                    // Metronome toggle and mode menus
                     Toggle(isOn: $metronome.isEnabled) {
                         Image(systemName: "metronome")
                     }
@@ -413,7 +471,8 @@ struct ContentView: View {
                             if newValue {
                                 let bpm = verovioService.getTempoBPM() ?? 120.0
                                 metronome.bpm = bpm
-                                    metronome.playbackRate = midiPlayer.playbackRate
+                                // Keep metronome playback rate in sync with MIDI player's rate
+                                metronome.playbackRate = midiPlayer.playbackRate
                                 if midiPlayer.isPlaying || isVisualPlaying || selectedStavesForPlayback.isEmpty {
                                     metronome.start()
                                 }
@@ -422,7 +481,6 @@ struct ContentView: View {
                             }
                     }
 
-                    // Metronome mode selector (only show when metronome is enabled)
                     if metronome.isEnabled {
                         Menu {
                             Button {
@@ -497,7 +555,6 @@ struct ContentView: View {
                         }
                         .help("Metronome Mode")
 
-                        // Subdivision selector (only show for counting mode) - macOS
                         if metronome.mode == .counting {
                             Menu {
                                 Button {
@@ -589,74 +646,15 @@ struct ContentView: View {
 
                     Divider()
 
-                    // "Play for me" selector: choose staves to include in MIDI playback
-                    if verovioService.availableStaves.count > 0 {
-                        Menu {
-                            ForEach(verovioService.availableStaves.indices, id: \.self) { index in
-                                let (partId, staffNumber, staffName) = verovioService.availableStaves[index]
-                                let staveKey = "\(partId)-\(staffNumber)"
-                                Button(action: {
-                                    if selectedStavesForPlayback.contains(staveKey) {
-                                        selectedStavesForPlayback.remove(staveKey)
-                                    } else {
-                                        selectedStavesForPlayback.insert(staveKey)
-                                    }
-                                }) {
-                                    HStack {
-                                        if selectedStavesForPlayback.contains(staveKey) {
-                                            Image(systemName: "checkmark")
-                                        }
-                                        Text(staffName)
-                                    }
-                                }
-                            }
-
-                        } label: {
-                            HStack {
-                                Image(systemName: "play.circle")
-                            }
-                        }
-                        .help("Play for me: select which staves to include in MIDI playback")
-
-                        Divider()
+                    // Play/Pause button (right-most)
+                    Button(action: {
+                        togglePlayback()
+                    }) {
+                        let isAnyPlaying = midiPlayer.isPlaying || isVisualPlaying
+                        Image(systemName: isAnyPlaying ? "pause.circle.fill" : "play.circle.fill")
+                            .font(.title2)
                     }
-                    // Parts selector (only show if multiple parts available)
-                    else if verovioService.availableParts.count > 1 {
-                        Menu {
-                            ForEach(verovioService.availableParts, id: \.0) { partId, partName in
-                                Button(action: {
-                                    togglePart(partId)
-                                }) {
-                                    HStack {
-                                        if verovioService.enabledPartIds.contains(partId) {
-                                            Image(systemName: "checkmark")
-                                        }
-                                        Text(partName)
-                                    }
-                                }
-                            }
-                        } label: {
-                            Image(systemName: "music.note.list")
-                        }
-                        .help("Select Parts")
-
-                        Divider()
-                    }
-
-                    Button("Load MusicXML file") {
-                        isImporting = true
-                    }
-
-                    Menu {
-                        Button("Twinkle Twinkle Little Star") {
-                            loadDemoFile(named: "twinkle_twinkle")
-                        }
-                        Button("Für Elise (Easy Piano)") {
-                            loadDemoFile(named: "fur_elise")
-                        }
-                    } label: {
-                        Text("Demo")
-                    }
+                    .help(getPlayButtonHelp())
                 }
             }
         }
