@@ -170,6 +170,43 @@ struct MetronomeTimeBasedTests {
         metronome.stop()
     }
 
+    @Test("Metronome respects playbackRate when MIDI audio is disabled")
+    func metronomeRespectsPlaybackRateWhenMIDIDisabled() async {
+        let mockTime = MockTimeProvider()
+        let metronome = Metronome(timeProvider: mockTime)
+        let midiPlayer = MIDIPlayer()
+
+        // Simulate MIDI audio being unloaded/disabled (no AVMIDIPlayer inside)
+        midiPlayer.unload()
+
+        // Provide some note events so metronome has a duration
+        metronome.setNoteEvents([
+            (0.0, 60, 0),
+            (1.0, 62, 0)
+        ])
+
+        // Attach the (unloaded) midiPlayer to metronome to simulate the app wiring
+        metronome.midiPlayer = midiPlayer
+
+        // Set BPM and half-speed playback rate
+        metronome.bpm = 120.0  // 0.5s per beat at normal speed
+        metronome.playbackRate = 0.5  // half speed => 1.0s per beat
+        metronome.mode = .tick
+        metronome.isEnabled = true
+
+        metronome.start()
+
+        // Initially at beat 0
+        #expect(metronome.currentBeat == 0)
+
+        // Advance by 1.0s -> should move to beat 1 because playbackRate halves speed
+        mockTime.advance(by: 1.0)
+        try? await Task.sleep(nanoseconds: 10_000_000)
+        #expect(metronome.currentBeat == 1)
+
+        metronome.stop()
+    }
+
     @Test("Metronome currentTime tracks elapsed time correctly")
     func currentTimeTracking() async {
         let mockTime = MockTimeProvider()
