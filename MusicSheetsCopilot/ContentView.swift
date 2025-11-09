@@ -845,14 +845,47 @@ struct ContentView: View {
         if !selectedStavesForPlayback.isEmpty {
             if let selectedMidiString = verovioService.getMIDIForStaves(selectedStavesForPlayback), let selectedMidiData = Data(base64Encoded: selectedMidiString) {
                 let wasPlaying = midiPlayer.isPlaying
+                // Preserve current playback position so we can resume at the same spot after reload
+                let savedPosition = midiPlayer.currentTime
+                // Stop metronome briefly so it can be restarted cleanly after note events update
+                let wasMetronomeTicking = metronome.isTicking
+                if wasMetronomeTicking {
+                    metronome.stop()
+                }
                 do {
                     try midiPlayer.loadMIDI(data: selectedMidiData)
                     midiPlayer.loadNoteEventsFromFilteredMIDI(data: selectedMidiData)
                     metronome.setNoteEvents(midiPlayer.noteEvents)
+                    // Ensure metronome honors current playback rate
+                    metronome.playbackRate = midiPlayer.playbackRate
                     print("ContentView.updateMIDISelection: loaded selected staves MIDI (\(selectedStavesForPlayback.count) staves)")
-                    if wasPlaying { midiPlayer.play() }
+                    if wasPlaying {
+                        // Small delay to avoid races between MIDI player stop/start and metronome timers
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
+                            midiPlayer.play(fromPosition: savedPosition)
+                            // Seek metronome to the same logical position so it stays in sync
+                            metronome.seek(to: savedPosition)
+
+                            // Restart metronome if it was running before
+                            if wasMetronomeTicking && metronome.isEnabled {
+                                metronome.start()
+                            } else {
+                                metronome.onMIDIPlaybackStateChanged()
+                            }
+                        }
+                    } else {
+                        // Not playing: just ensure timer/resync
+                        metronome.onMIDIPlaybackStateChanged()
+                        if wasMetronomeTicking && metronome.isEnabled {
+                            metronome.start()
+                        }
+                    }
                 } catch {
                     print("Warning: Failed to load selected-staves MIDI: \(error.localizedDescription)")
+                    // If we stopped metronome earlier, restart it to preserve user intent
+                    if wasMetronomeTicking && metronome.isEnabled {
+                        metronome.start()
+                    }
                 }
             } else {
                 print("ContentView.updateMIDISelection: Verovio failed to produce MIDI for selected staves: \(selectedStavesForPlayback)")
@@ -866,6 +899,17 @@ struct ContentView: View {
             if let filteredMidiString = verovioService.getMIDIForFirstStaff(), let filteredMidiData = Data(base64Encoded: filteredMidiString) {
                 midiPlayer.loadNoteEventsFromFilteredMIDI(data: filteredMidiData)
                 metronome.setNoteEvents(midiPlayer.noteEvents)
+            }
+
+            // Ensure metronome honors current playback rate and switches into metronome-only timing
+            let wasMetronomeTicking = metronome.isTicking
+            if wasMetronomeTicking {
+                metronome.stop()
+            }
+            metronome.playbackRate = midiPlayer.playbackRate
+            metronome.onMIDIPlaybackStateChanged()
+            if wasMetronomeTicking && metronome.isEnabled {
+                metronome.start()
             }
 
             print("ContentView.updateMIDISelection: no staves selected — audio unloaded and disabled")

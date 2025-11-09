@@ -345,58 +345,61 @@ class Metronome: ObservableObject {
     }
 
     private func updateTimer() {
-        timer?.invalidate()
-        guard isEnabled && isTicking else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.timer?.invalidate()
+            guard self.isEnabled && self.isTicking else { return }
 
-        // Check if we need to sync with MIDI that just started playing
-        if let player = midiPlayer, player.isPlaying, midiSyncStartTime == nil {
-            // MIDI is now playing but we weren't tracking it - start tracking
-            midiSyncStartTime = timeProvider.now()
-            midiSyncStartPosition = player.currentTime
+            // Check if we need to sync with MIDI that just started playing
+            if let player = self.midiPlayer, player.isPlaying, self.midiSyncStartTime == nil {
+                // MIDI is now playing but we weren't tracking it - start tracking
+                self.midiSyncStartTime = self.timeProvider.now()
+                self.midiSyncStartPosition = player.currentTime
 
-            // Update beat position to match MIDI
-            let beatDuration = 60.0 / bpm
-            let currentBeat = Int(player.currentTime / beatDuration) % timeSignature.0
-            self.currentBeat = currentBeat
-            self.tickCount = currentBeat
-        } else if midiPlayer?.isPlaying != true && midiSyncStartTime != nil {
-            // MIDI stopped - switch back to metronome-only mode
-            midiSyncStartTime = nil
-            midiSyncStartPosition = 0
-            metronomeStartTime = timeProvider.now()
-            metronomePausedTime = 0
-        }
+                // Update beat position to match MIDI
+                let beatDuration = 60.0 / self.bpm
+                let currentBeat = Int(player.currentTime / beatDuration) % self.timeSignature.0
+                self.currentBeat = currentBeat
+                self.tickCount = currentBeat
+            } else if self.midiPlayer?.isPlaying != true && self.midiSyncStartTime != nil {
+                // MIDI stopped - switch back to metronome-only mode
+                self.midiSyncStartTime = nil
+                self.midiSyncStartPosition = 0
+                self.metronomeStartTime = self.timeProvider.now()
+                self.metronomePausedTime = 0
+            }
 
-        // Adjust BPM by playback rate
-        let adjustedBPM = bpm * Double(playbackRate)
+            // Adjust BPM by playback rate
+            let adjustedBPM = self.bpm * Double(self.playbackRate)
 
-        // Compute beat and subdivision durations
-        let subdivisionInterval = 60.0 / (adjustedBPM * Double(max(1, subdivisions)))
+            // Compute beat and subdivision durations
+            let subdivisionInterval = 60.0 / (adjustedBPM * Double(max(1, self.subdivisions)))
 
-        // Prefer using the musical subdivision interval for metronome ticks when
-        // running in metronome-only modes. Reserve the high-frequency short
-        // interval (maxInterval) only for MIDI sync or solfege mode where we need
-        // very frequent checks for UI highlighting or precise note boundaries.
-        let maxInterval: TimeInterval = 0.05
+            // Prefer using the musical subdivision interval for metronome ticks when
+            // running in metronome-only modes. Reserve the high-frequency short
+            // interval (maxInterval) only for MIDI sync or solfege mode where we need
+            // very frequent checks for UI highlighting or precise note boundaries.
+            let maxInterval: TimeInterval = 0.05
 
-        let interval: TimeInterval
-        if midiPlayer?.isPlaying == true {
-            // When MIDI is playing, poll at high frequency (capped to maxInterval)
-            interval = min(maxInterval, subdivisionInterval)
-        } else if mode == .solfege {
-            // Solfege needs frequent checks to catch note events
-            interval = min(maxInterval, subdivisionInterval)
-        } else if mode == .counting && subdivisions > 1 {
-            // Counting with subdivisions: tick exactly at subdivision intervals
-            interval = subdivisionInterval
-        } else {
-            // Metronome-only simple tick/counting: use the beat/subdivision interval
-            // (no extra high-frequency polling) so audio ticks occur at musical tempo.
-            interval = subdivisionInterval
-        }
+            let interval: TimeInterval
+            if self.midiPlayer?.isPlaying == true {
+                // When MIDI is playing, poll at high frequency (capped to maxInterval)
+                interval = min(maxInterval, subdivisionInterval)
+            } else if self.mode == .solfege {
+                // Solfege needs frequent checks to catch note events
+                interval = min(maxInterval, subdivisionInterval)
+            } else if self.mode == .counting && self.subdivisions > 1 {
+                // Counting with subdivisions: tick exactly at subdivision intervals
+                interval = subdivisionInterval
+            } else {
+                // Metronome-only simple tick/counting: use the beat/subdivision interval
+                // (no extra high-frequency polling) so audio ticks occur at musical tempo.
+                interval = subdivisionInterval
+            }
 
-        timer = timeProvider.scheduleTimer(interval: interval, repeats: true) { [weak self] in
-            self?.tick()
+            self.timer = self.timeProvider.scheduleTimer(interval: interval, repeats: true) { [weak self] in
+                self?.tick()
+            }
         }
     }
 

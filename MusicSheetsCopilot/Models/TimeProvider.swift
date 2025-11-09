@@ -32,9 +32,9 @@ class SystemTimeProvider: TimeProvider {
         let timer = Timer(timeInterval: interval, repeats: repeats) { _ in
             block()
         }
-        // Add timer to run loop with .common mode to ensure it continues firing
+        // Add timer to the main run loop with .common mode to ensure it continues firing
         // even when UI interactions (like dropdown menus) are happening
-        RunLoop.current.add(timer, forMode: .common)
+        RunLoop.main.add(timer, forMode: .common)
         return SystemTimer(timer: timer)
     }
 }
