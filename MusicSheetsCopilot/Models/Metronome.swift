@@ -274,6 +274,12 @@ class Metronome: ObservableObject {
             }
         }
 
+        // Publish initial currentTime immediately so UI/WebView sees the starting position
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.currentTime = initialTime
+        }
+
         updateTimer()
     }
 
@@ -364,21 +370,29 @@ class Metronome: ObservableObject {
         // Adjust BPM by playback rate
         let adjustedBPM = bpm * Double(playbackRate)
 
-        // When syncing with MIDI playback, check frequently to catch beat boundaries
-        // Otherwise use the beat duration
+        // Compute beat duration and prefer a reasonably high update frequency for UI
+        // so that WebView highlighting can update smoothly when metronome-only is running.
+        let beatDuration = 60.0 / adjustedBPM
+
+        // When MIDI is playing or in solfege mode, we need frequent checks to catch
+        // beat and note boundaries. Otherwise, choose a timer interval that is at most
+        // 50ms (20Hz) to keep highlighting smooth but avoid excessive CPU use.
+        let maxInterval: TimeInterval = 0.05
+
         let interval: TimeInterval
         if midiPlayer?.isPlaying == true {
-            // Check every 50ms when MIDI is playing to catch beat boundaries precisely
-            interval = 0.05
+            // Check frequently when MIDI is playing to catch beat boundaries precisely
+            interval = maxInterval
         } else if mode == .solfege {
             // Solfege mode also checks frequently to catch note events
-            interval = 0.05
+            interval = maxInterval
         } else if mode == .counting && subdivisions > 1 {
-            // Counting mode with subdivisions: tick at subdivision intervals
-            interval = 60.0 / (adjustedBPM * Double(subdivisions))
+            // Counting mode with subdivisions: tick at subdivision intervals, but not slower than maxInterval
+            let subdivisionInterval = 60.0 / (adjustedBPM * Double(subdivisions))
+            interval = min(maxInterval, subdivisionInterval)
         } else {
-            // Metronome-only mode: tick at beat intervals
-            interval = 60.0 / adjustedBPM
+            // Metronome-only mode: use beat interval but capped to maxInterval for smooth UI updates
+            interval = min(maxInterval, beatDuration)
         }
 
         timer = timeProvider.scheduleTimer(interval: interval, repeats: true) { [weak self] in
@@ -387,6 +401,13 @@ class Metronome: ObservableObject {
     }
 
     private func tick() {
+        // Update metronome currentTime on every tick when MIDI is not playing so
+        // the published `currentTime` updates frequently and UI (WebView) can
+        // reflect playback position smoothly.
+        if midiPlayer?.isPlaying != true {
+            _ = getCurrentMetronomeTime()
+        }
+
         // Check if we've reached the end of the piece
         if let player = midiPlayer, player.isPlaying {
             // When MIDI is playing, only auto-stop if the player's duration is known (> 0)

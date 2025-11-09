@@ -42,8 +42,10 @@ struct ContentView: View {
                     timingData: timing,
                     midiPlayer: midiPlayer,
                     metronome: metronome,
-                    currentTimeOverride: metronome.isEnabled ? metronome.currentTime : nil,
-                    isPlayingOverride: metronome.isEnabled ? metronome.isTicking : (isVisualPlaying ? true : nil)
+                    // Use metronome time only when metronome is enabled AND MIDI is not playing.
+                    // When MIDI is playing, prefer the MIDI player's time for precise highlighting.
+                    currentTimeOverride: (metronome.isEnabled && !midiPlayer.isPlaying) ? metronome.currentTime : nil,
+                    isPlayingOverride: (metronome.isEnabled && !midiPlayer.isPlaying) ? metronome.isTicking : (isVisualPlaying ? true : nil)
                 )
                     .environmentObject(verovioService)
                     .environmentObject(midiPlayer)
@@ -693,18 +695,29 @@ struct ContentView: View {
         }()
 
         if hasAudioOutput {
+            // Determine whether the user is starting or stopping playback.
+            // We treat the call as a toggle: if nothing was playing before, this is a start.
+            let wasPlayingBefore = midiPlayer.isPlaying || isVisualPlaying || metronome.isTicking
+
             // Normal audio playback via MIDIPlayer
             midiPlayer.togglePlayPause()
 
-            // Notify metronome of MIDI playback state change
+            // Notify metronome of MIDI playback state change so it can re-sync if needed
             metronome.onMIDIPlaybackStateChanged()
 
-            // Sync metronome with MIDI playback
-            if midiPlayer.isPlaying && metronome.isEnabled {
+            // If metronome is enabled, start it when the user started playback, stop it when they paused.
+            if metronome.isEnabled {
                 let bpm = verovioService.getTempoBPM() ?? 120.0
                 metronome.bpm = bpm
-                metronome.start()
+                if !wasPlayingBefore {
+                    // User pressed Play -> ensure metronome is running
+                    metronome.start()
+                } else {
+                    // User pressed Pause -> stop metronome
+                    metronome.stop()
+                }
             } else {
+                // Metronome disabled -> ensure it's stopped
                 metronome.stop()
             }
         } else {
