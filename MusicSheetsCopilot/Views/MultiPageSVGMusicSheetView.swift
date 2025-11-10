@@ -326,7 +326,8 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                                         if (notehead && notehead.getBoundingClientRect) {
                                             const cr = notehead.getBoundingClientRect();
                                             const right = cr.left + cr.width;
-                                            const pRight = clientToSVGPoint(svg, right + Math.max(6, cr.width * 0.2), cr.top + cr.height / 2);
+                                            // Place label closer to the notehead: use smaller absolute offset and smaller fraction of width
+                                            const pRight = clientToSVGPoint(svg, right + Math.max(2, cr.width * 0.08), cr.top + cr.height / 2);
                                             x = pRight.x;
                                             y = pRight.y;
                                             placedFromClient = true;
@@ -334,7 +335,8 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                                     } catch(e) { placedFromClient = false; }
                                     if (!placedFromClient) {
                                         // Fallback to SVG bbox
-                                        const offset = Math.max(6, bb.width * 0.2);
+                                        // Use a tighter offset for visual proximity
+                                        const offset = Math.max(2, bb.width * 0.08);
                                         x = bb.x + bb.width + offset;
                                         y = bb.y + bb.height / 2;
                                     }
@@ -345,7 +347,8 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                                     if (rect) {
                                         const right = rect.left + rect.width;
                                         const p = clientToSVGPoint(svg, right, rect.top + rect.height / 2);
-                                        x = p.x + Math.max(6, rect.width * 0.2);
+                                        // Smaller padding for catch-all placement
+                                        x = p.x + Math.max(2, rect.width * 0.08);
                                         y = p.y;
                                     }
                                 }
