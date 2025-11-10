@@ -250,23 +250,7 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                 const timingData = \(timingData);
                 // Note name mode forwarded from Swift
                 const noteNameMode = "\(noteNameMode)";
-                // Utility to forward logs to the Swift side. IMPORTANT: for logging, instead of calling
-                // `console.log`, JS should call `logToSwiftSide(...)` so Swift can capture logs in Xcode.
-                function logToSwiftSide(...args) {
-                    try {
-                        const payload = args.map(a => {
-                            try { return typeof a === 'string' ? a : JSON.stringify(a); } catch(e) { return String(a); }
-                        }).join(' ');
-                        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.swiftLog) {
-                            window.webkit.messageHandlers.swiftLog.postMessage(payload);
-                        } else {
-                            // Fallback to console when not running inside WKWebView
-                            console.log.apply(console, args);
-                        }
-                    } catch(e) {
-                        console.log('logToSwiftSide error', e, args);
-                    }
-                }
+                // (logToSwiftSide helper is defined once earlier; avoid duplicate definitions)
 
                 // Insert note name labels above noteheads when requested.
                 // Expects parent note elements to have data-note-name or data-midi attributes (injected by Swift annotation).
@@ -290,7 +274,8 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
 
                         // Use the annotated elements directly (elements that Swift injected attributes onto)
                         const annotatedEls = Array.from(document.querySelectorAll('[data-note-name], [data-midi]'));
-                        logToSwiftSide('[insertNoteNames] annotated elements found:', annotatedEls.length);
+                        // Minimal logging: report count only
+                        logToSwiftSide('[insertNoteNames] annotated elements:', annotatedEls.length);
 
                         let inserted = 0;
                         annotatedEls.forEach((el, idx) => {
@@ -331,9 +316,7 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                                                 }
                                             } catch (e) { /* ignore bbox errors */ }
                                         });
-                                        if (debugCandidates.length > 0) {
-                                            logToSwiftSide('[insertNoteNames] candidates for element', idx, 'count:', debugCandidates.length, JSON.stringify(debugCandidates.slice(0,8)));
-                                        }
+                                        // Candidate debug logs removed for brevity
                                     } catch(e) { /* ignore query errors */ }
 
                                     const bb = bestBBox || anchor.getBBox();
@@ -355,7 +338,8 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                                         x = bb.x + bb.width + offset;
                                         y = bb.y + bb.height / 2;
                                     }
-                                    logToSwiftSide('[insertNoteNames] chosen candidate for element', idx, 'notehead=', notehead ? (notehead.id || notehead.tagName) : null, 'usedClient=', placedFromClient, 'bb=', {x: bb.x, y: bb.y, w: bb.width, h: bb.height}, '-> x=', x, 'y=', y);
+                                    // Keep minimal placement info
+                                    logToSwiftSide('[insertNoteNames] placed element', idx, 'usedClient=', placedFromClient);
                                 } catch (e) {
                                     const rect = anchor.getBoundingClientRect ? anchor.getBoundingClientRect() : null;
                                     if (rect) {
@@ -465,13 +449,13 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                                     if (svg) svg.appendChild(text);
                                 }
                                 inserted++;
-                                if (inserted < 6) logToSwiftSide('[insertNoteNames] inserted label', label, 'at', x, y);
-                            } catch (e) {
-                                logToSwiftSide('[insertNoteNames] error creating label', String(e));
-                            }
+                                } catch (e) {
+                                    // Swallow perimeter errors; keep minimal logging
+                                }
                         });
+                        // Report how many labels were inserted
                         logToSwiftSide('[insertNoteNames] total inserted:', inserted);
-                    } catch (e) { logToSwiftSide('[insertNoteNames] error', String(e)); }
+                    } catch (e) { /* ignore insertNoteNames errors in production */ }
                 }
                 function logAnnotatedElements() {
                     try {
@@ -483,11 +467,8 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                             const dm = el.getAttribute('data-midi');
                             annotated.push({ id: id, noteName: dn, midi: dm, tag: el.tagName, cls: el.getAttribute('class') });
                         });
+                        // Keep minimal annotated elements count log
                         logToSwiftSide('[logAnnotatedElements] annotatedCount:', annotated.length);
-                        if (annotated.length > 0) {
-                            // Send only a small sample
-                            logToSwiftSide('[logAnnotatedElements] sample:', annotated.slice(0, 8));
-                        }
                     } catch(e) { logToSwiftSide('[logAnnotatedElements] error', String(e)); }
                 }
                 function clearNoteNameLabels() {
@@ -495,10 +476,10 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                         // Remove both class-based elements and any with the data attributes
                         const labels = Array.from(document.querySelectorAll('.note-name-label, [data-note-name-label], [data-note-name-label="1"]'));
                         const bgs = Array.from(document.querySelectorAll('.note-name-bg, [data-note-name-bg], [data-note-name-bg="1"]'));
-                        // Remove DOM nodes safely
                         labels.forEach(e => { try { e.remove(); } catch(e) {} });
                         bgs.forEach(e => { try { e.remove(); } catch(e) {} });
-                        logToSwiftSide('[clearNoteNameLabels] removed', labels.length, 'labels and', bgs.length, 'backgrounds');
+                        // Keep a concise removal log
+                        logToSwiftSide('[clearNoteNameLabels] removed', labels.length, 'labels,', bgs.length, 'bgs');
                     } catch(e) { logToSwiftSide('[clearNoteNameLabels] error', String(e)); }
                 }
                 // Utility to forward logs to the Swift side. IMPORTANT: for logging, instead of calling
