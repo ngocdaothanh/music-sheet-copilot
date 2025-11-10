@@ -350,16 +350,25 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                                     }
                                 }
 
-                                const nameAttr = el.getAttribute('data-note-name') || el.getAttribute('data-midi');
-                                if (!nameAttr) return;
+                                // Prefer numeric MIDI value when mapping to letter/solfege syllables.
+                                // Swift-side annotation previously injected both `data-midi` (numeric) and
+                                // `data-note-name` (precomputed letter). Using the numeric `data-midi`
+                                // ensures mode-specific mappings (like solfege) are correct.
+                                const midiAttr = el.getAttribute('data-midi');
+                                const nameAttr = el.getAttribute('data-note-name');
+                                if (!midiAttr && !nameAttr) return;
 
-                                let label = nameAttr;
-                                if (mode === 'letter') {
-                                    const m = parseInt(nameAttr);
-                                    if (!isNaN(m)) label = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'][m % 12];
-                                } else if (mode === 'solfege') {
-                                    const m = parseInt(nameAttr);
-                                    if (!isNaN(m)) label = ['Doh','Doh','Reh','Reh','Mee','Fa','Fa','Sol','Sol','La','La','Si'][m % 12];
+                                let label = nameAttr || '';
+                                if (mode === 'letter' || mode === 'solfege') {
+                                    const m = parseInt(midiAttr != null ? midiAttr : nameAttr);
+                                    if (!isNaN(m)) {
+                                        if (mode === 'letter') {
+                                            label = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'][m % 12];
+                                        } else {
+                                            // Solfege mapping: use common movable-do approximations
+                                            label = ['Do','Do','Re','Re','Mi','Fa','Fa','Sol','Sol','La','La','Si'][m % 12];
+                                        }
+                                    }
                                 }
 
                                 const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
