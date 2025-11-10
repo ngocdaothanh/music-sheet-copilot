@@ -23,6 +23,7 @@
 		E1A037 /* VerovioService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A038 /* VerovioService.swift */; };
 		F41359D72EC10A360061A20E /* NoteNameMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = F41359D62EC10A360061A20E /* NoteNameMode.swift */; };
 		F41359DA2EC1B3560061A20E /* fingure_excercise1.xml in Resources */ = {isa = PBXBuildFile; fileRef = F41359D82EC1B3560061A20E /* fingure_excercise1.xml */; };
+		F41359DC2EC213B40061A20E /* fingure_excercise3.xml in Resources */ = {isa = PBXBuildFile; fileRef = F41359DB2EC213B40061A20E /* fingure_excercise3.xml */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -54,6 +55,7 @@
 		E1A038 /* VerovioService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerovioService.swift; sourceTree = "<group>"; };
 		F41359D62EC10A360061A20E /* NoteNameMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteNameMode.swift; sourceTree = "<group>"; };
 		F41359D82EC1B3560061A20E /* fingure_excercise1.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = fingure_excercise1.xml; sourceTree = "<group>"; };
+		F41359DB2EC213B40061A20E /* fingure_excercise3.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = fingure_excercise3.xml; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -148,6 +150,7 @@
 			isa = PBXGroup;
 			children = (
 				F41359D82EC1B3560061A20E /* fingure_excercise1.xml */,
+				F41359DB2EC213B40061A20E /* fingure_excercise3.xml */,
 			);
 			path = finger_excercises;
 			sourceTree = "<group>";
@@ -253,6 +256,7 @@
 			files = (
 				E1A005 /* Assets.xcassets in Resources */,
 				F41359DA2EC1B3560061A20E /* fingure_excercise1.xml in Resources */,
+				F41359DC2EC213B40061A20E /* fingure_excercise3.xml in Resources */,
 				73716DB92EBBB43A00645726 /* verovio-data in Resources */,
 				7306849D2EBA1C7B001BCE5B /* fur_elise.xml in Resources */,
 				E1A013 /* twinkle_twinkle.xml in Resources */,
