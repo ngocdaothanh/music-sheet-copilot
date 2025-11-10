@@ -14,4 +14,13 @@ enum NoteNameMode: String, Codable, CaseIterable {
         case .solfege: return "Solfege"
         }
     }
+
+    /// Verbose label used in menus to match MetronomeMode wording
+    var menuTitle: String {
+        switch self {
+        case .none: return "None"
+        case .letter: return "Letter (C-D-E)"
+        case .solfege: return "Solfege (Do-Re-Mi)"
+        }
+    }
 }

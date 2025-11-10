@@ -357,24 +357,14 @@ struct ContentView: View {
                         }
                     }
 
-                        // Note name display mode (None / Letter / Solfege)
+                        // Note name display mode (None / Letter / Solfege) - use a list-style Menu like MetronomeMode
                         Menu {
-                            Button(action: { noteNameMode = .none }) {
-                                HStack {
-                                    if noteNameMode == .none { Image(systemName: "checkmark") }
-                                    Text("None")
-                                }
-                            }
-                            Button(action: { noteNameMode = .letter }) {
-                                HStack {
-                                    if noteNameMode == .letter { Image(systemName: "checkmark") }
-                                    Text("Letter")
-                                }
-                            }
-                            Button(action: { noteNameMode = .solfege }) {
-                                HStack {
-                                    if noteNameMode == .solfege { Image(systemName: "checkmark") }
-                                    Text("Solfege")
+                            ForEach(NoteNameMode.allCases, id: \.self) { mode in
+                                Button(action: { noteNameMode = mode }) {
+                                    HStack {
+                                        if noteNameMode == mode { Image(systemName: "checkmark") }
+                                        Text(mode.menuTitle)
+                                    }
                                 }
                             }
                         } label: {
@@ -687,18 +677,24 @@ struct ContentView: View {
                     }
                     .help(getPlayButtonHelp())
 
-                    // Visible Note Names button for macOS: shows current mode and cycles modes on click
-                    Button(action: {
-                        // Cycle through modes for quick access on macOS
-                        switch noteNameMode {
-                        case .none: noteNameMode = .letter
-                        case .letter: noteNameMode = .solfege
-                        case .solfege: noteNameMode = .none
+                    // Note name display mode selector for macOS (list-style like MetronomeMode)
+                    Menu {
+                        ForEach(NoteNameMode.allCases, id: \.self) { mode in
+                            Button(action: { noteNameMode = mode }) {
+                                HStack {
+                                    if noteNameMode == mode { Image(systemName: "checkmark") }
+                                    Text(mode.menuTitle)
+                                }
+                            }
                         }
-                    }) {
-                        Text("Note Names: \(noteNameMode.title)")
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "textformat")
+                            Text(noteNameMode.title)
+                                .font(.caption)
+                        }
                     }
-                    .help("Cycle Note Name display modes: None → Letter → Solfege")
+                    .help("Toggle note name overlays on the score")
                 }
             }
         }

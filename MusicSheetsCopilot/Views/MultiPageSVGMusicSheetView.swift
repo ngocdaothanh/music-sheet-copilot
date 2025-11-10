@@ -1027,15 +1027,14 @@ fileprivate func annotateSVGPages(svgPages: [String], timingData: String, midiEv
                     let noteName = midiToName(midi)
                     // Use XPath to find any element with matching id attribute
                     let xpath = "//*[@id='\(id)']"
-                    if let nodes = try xmlDoc.nodes(forXPath: xpath) as? [XMLNode], !nodes.isEmpty {
+                    let nodes = try xmlDoc.nodes(forXPath: xpath)
+                    if !nodes.isEmpty {
                         for node in nodes {
                             if let element = node as? XMLElement {
                                 element.addAttribute(XMLNode.attribute(withName: "data-midi", stringValue: "\(midi)") as! XMLNode)
                                 element.addAttribute(XMLNode.attribute(withName: "data-note-name", stringValue: noteName) as! XMLNode)
                             }
                         }
-                    } else {
-                        // No nodes found for this id in the parsed XML; continue — we may fall back later
                     }
                 }
 
