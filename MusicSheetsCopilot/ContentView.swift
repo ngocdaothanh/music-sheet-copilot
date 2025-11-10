@@ -73,6 +73,9 @@ struct ContentView: View {
                             Button("Für Elise (Easy Piano)") {
                                 loadDemoFile(named: "fur_elise")
                             }
+                            Button("Finger Exercise 1") {
+                                loadDemoFile(named: "fingure_excercise1")
+                            }
                         } label: {
                             Text("Load Demo")
                         }
@@ -146,6 +149,9 @@ struct ContentView: View {
                         }
                         Button("Für Elise (Easy Piano)") {
                             loadDemoFile(named: "fur_elise")
+                        }
+                        Button("Finger Exercise 1") {
+                            loadDemoFile(named: "fingure_excercise1")
                         }
                     } label: {
                         Text("Demo")
@@ -400,6 +406,9 @@ struct ContentView: View {
                         }
                         Button("Für Elise (Easy Piano)") {
                             loadDemoFile(named: "fur_elise")
+                        }
+                        Button("Finger Exercise 1") {
+                            loadDemoFile(named: "fingure_excercise1")
                         }
                     } label: {
                         Text("Demo")
