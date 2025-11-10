@@ -418,15 +418,30 @@ struct ContentView: View {
                     }
                     .buttonStyle(.bordered)
 
-                    Divider()
-
                     // Open File
                     Button("Open File...") {
                         isImporting = true
                     }
                     .buttonStyle(.bordered)
 
-                    Divider()
+                    // Note name display mode selector for macOS (list-style like MetronomeMode)
+                    Menu {
+                        ForEach(NoteNameMode.allCases, id: \.self) { mode in
+                            Button(action: { noteNameMode = mode }) {
+                                HStack {
+                                    if noteNameMode == mode { Image(systemName: "checkmark") }
+                                    Text(mode.menuTitle)
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "textformat")
+                            Text(noteNameMode.title)
+                                .font(.caption)
+                        }
+                    }
+                    .help("Toggle note name overlays on the score")
 
                     // "Play for me" selector: choose staves to include in MIDI playback
                     if verovioService.availableStaves.count > 0 {
@@ -676,25 +691,6 @@ struct ContentView: View {
                             .font(.title2)
                     }
                     .help(getPlayButtonHelp())
-
-                    // Note name display mode selector for macOS (list-style like MetronomeMode)
-                    Menu {
-                        ForEach(NoteNameMode.allCases, id: \.self) { mode in
-                            Button(action: { noteNameMode = mode }) {
-                                HStack {
-                                    if noteNameMode == mode { Image(systemName: "checkmark") }
-                                    Text(mode.menuTitle)
-                                }
-                            }
-                        }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "textformat")
-                            Text(noteNameMode.title)
-                                .font(.caption)
-                        }
-                    }
-                    .help("Toggle note name overlays on the score")
                 }
             }
         }

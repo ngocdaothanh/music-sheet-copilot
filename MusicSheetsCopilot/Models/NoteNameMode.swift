@@ -9,7 +9,7 @@ enum NoteNameMode: String, Codable, CaseIterable {
     /// Human-friendly title
     var title: String {
         switch self {
-        case .none: return "None"
+        case .none: return "No note names"
         case .letter: return "Letter"
         case .solfege: return "Solfege"
         }
@@ -18,7 +18,7 @@ enum NoteNameMode: String, Codable, CaseIterable {
     /// Verbose label used in menus to match MetronomeMode wording
     var menuTitle: String {
         switch self {
-        case .none: return "None"
+        case .none: return "No note names"
         case .letter: return "Letter (C-D-E)"
         case .solfege: return "Solfege (Do-Re-Mi)"
         }
