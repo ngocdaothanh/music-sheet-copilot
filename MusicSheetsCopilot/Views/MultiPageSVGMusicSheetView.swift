@@ -391,9 +391,13 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                                 text.setAttribute('font-family', '-apple-system, system-ui, Arial, sans-serif');
                                 text.setAttribute('font-weight', '700');
                                 // Add a stronger stroke so the label is visible on both light and dark backgrounds
-                                const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-                                text.setAttribute('fill', isDark ? 'white' : 'black');
-                                text.setAttribute('stroke', isDark ? 'black' : 'white');
+                                // Because the SVG is inverted in dark mode (CSS filter), set pre-inversion colors
+                                // so the final displayed colors are: dark mode -> white, light mode -> black.
+                                // Setting fill to 'black' here results in black in light mode and (after inversion) white in dark mode.
+                                text.setAttribute('fill', 'black');
+                                // Use white stroke pre-inversion so it becomes black in dark mode after inversion,
+                                // and remains white in light mode to give contrast around black text.
+                                text.setAttribute('stroke', 'white');
                                 // Stroke sized for current font
                                 text.setAttribute('stroke-width', '3');
                                 text.setAttribute('paint-order', 'stroke fill');
@@ -403,21 +407,36 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                                 // - If placedFromClient (we used client->SVG conversion), x/y are in root SVG coords -> append to root svg
                                 // - Otherwise append inside anchor so text coordinates are local
                                 try {
-                                    if (placedFromClient) {
-                                        svg.appendChild(text);
+                                        if (placedFromClient) {
+                                        // Create a stable background rect based on font-size and label length (avoid relying on getBBox)
                                         try {
-                                            const tb = text.getBBox();
+                                            const fs = parseFloat(text.getAttribute('font-size')) || 180;
+                                            const charCount = (label || '').length || 1;
+                                            const estWidth = Math.max(20, fs * charCount * 0.6);
+                                            const estHeight = Math.max(fs * 0.8, fs * 0.8);
+                                            const paddingX = Math.max(6, fs * 0.08);
+                                            const paddingY = Math.max(3, fs * 0.2);
                                             const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
-                                            rect.setAttribute('x', tb.x - 8);
-                                            rect.setAttribute('y', tb.y - 6);
-                                            rect.setAttribute('width', tb.width + 16);
-                                            rect.setAttribute('height', tb.height + 12);
-                                            rect.setAttribute('rx', '4');
+                                            // position rect so text (with text-anchor start and dominant-baseline middle) centers vertically
+                                            rect.setAttribute('x', x - 2);
+                                            rect.setAttribute('y', y - estHeight / 2 - paddingY);
+                                            rect.setAttribute('width', estWidth + paddingX * 2);
+                                            rect.setAttribute('height', estHeight + paddingY * 2);
+                                            rect.setAttribute('rx', String(Math.max(2, fs * 0.06)));
+                                            // Use an opaque contrasting background and subtle stroke so background is always visible
                                             rect.setAttribute('fill', isDark ? 'black' : 'white');
-                                            rect.setAttribute('opacity', '0.95');
+                                            rect.setAttribute('stroke', isDark ? 'white' : 'black');
+                                            rect.setAttribute('stroke-width', '2');
+                                            rect.setAttribute('opacity', isDark ? '0.95' : '1.0');
                                             rect.setAttribute('class', 'note-name-bg');
-                                            svg.insertBefore(rect, text);
+                                            // Tag with data attribute so clear routine can find any rects created this way
+                                            rect.setAttribute('data-note-name-bg', '1');
+                                            // Insert rect before text by appending then moving text after to guarantee z-order
+                                            svg.appendChild(rect);
                                         } catch (e) { /* ignore */ }
+                                        // Append text after rect so it renders on top and tag it for easier clearing
+                                        text.setAttribute('data-note-name-label', '1');
+                                        svg.appendChild(text);
                                     } else {
                                         if (anchor && anchor.tagName && anchor.tagName.toLowerCase() === 'g') {
                                             anchor.appendChild(text);
@@ -429,9 +448,13 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                                                 rect.setAttribute('width', tb.width + 16);
                                                 rect.setAttribute('height', tb.height + 12);
                                                 rect.setAttribute('rx', '4');
+                                                // Use an opaque contrasting background and subtle stroke so background is always visible
                                                 rect.setAttribute('fill', isDark ? 'black' : 'white');
-                                                rect.setAttribute('opacity', '0.95');
+                                                rect.setAttribute('stroke', isDark ? 'white' : 'black');
+                                                rect.setAttribute('stroke-width', '1.5');
+                                                rect.setAttribute('opacity', isDark ? '0.95' : '1.0');
                                                 rect.setAttribute('class', 'note-name-bg');
+                                                rect.setAttribute('data-note-name-bg', '1');
                                                 anchor.insertBefore(rect, text);
                                             } catch (e) { /* ignore */ }
                                         } else {
@@ -469,10 +492,12 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
                 }
                 function clearNoteNameLabels() {
                     try {
-                        const labels = document.querySelectorAll('.note-name-label');
-                        const bgs = document.querySelectorAll('.note-name-bg');
-                        labels.forEach(e => e.remove());
-                        bgs.forEach(e => e.remove());
+                        // Remove both class-based elements and any with the data attributes
+                        const labels = Array.from(document.querySelectorAll('.note-name-label, [data-note-name-label], [data-note-name-label="1"]'));
+                        const bgs = Array.from(document.querySelectorAll('.note-name-bg, [data-note-name-bg], [data-note-name-bg="1"]'));
+                        // Remove DOM nodes safely
+                        labels.forEach(e => { try { e.remove(); } catch(e) {} });
+                        bgs.forEach(e => { try { e.remove(); } catch(e) {} });
                         logToSwiftSide('[clearNoteNameLabels] removed', labels.length, 'labels and', bgs.length, 'backgrounds');
                     } catch(e) { logToSwiftSide('[clearNoteNameLabels] error', String(e)); }
                 }
