@@ -152,15 +152,11 @@ struct ContentView: View {
                     }
                     .buttonStyle(.bordered)
 
-                    Divider()
-
                     // Open File
                     Button("Open File...") {
                         isImporting = true
                     }
                     .buttonStyle(.bordered)
-
-                    Divider()
 
                     // "Play for me" selector: choose staves to include in MIDI playback
                     if verovioService.availableStaves.count > 0 {
@@ -190,8 +186,6 @@ struct ContentView: View {
                             }
                         }
                         .help("Play for me: select which staves to include in MIDI playback")
-
-                        Divider()
                     } else if verovioService.availableParts.count > 1 {
                         // Parts selector (fallback)
                         Menu {
@@ -211,8 +205,6 @@ struct ContentView: View {
                             Image(systemName: "music.note.list")
                         }
                         .help("Select Parts")
-
-                        Divider()
                     }
 
                     // Metronome toggle and mode menus
@@ -357,26 +349,24 @@ struct ContentView: View {
                         }
                     }
 
-                        // Note name display mode (None / Letter / Solfege) - use a list-style Menu like MetronomeMode
-                        Menu {
-                            ForEach(NoteNameMode.allCases, id: \.self) { mode in
-                                Button(action: { noteNameMode = mode }) {
-                                    HStack {
-                                        if noteNameMode == mode { Image(systemName: "checkmark") }
-                                        Text(mode.menuTitle)
-                                    }
+                    // Note name display mode (None / Letter / Solfege) - use a list-style Menu like MetronomeMode
+                    Menu {
+                        ForEach(NoteNameMode.allCases, id: \.self) { mode in
+                            Button(action: { noteNameMode = mode }) {
+                                HStack {
+                                    if noteNameMode == mode { Image(systemName: "checkmark") }
+                                    Text(mode.menuTitle)
                                 }
                             }
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "textformat")
-                                Text(noteNameMode.title)
-                                    .font(.caption)
-                            }
                         }
-                        .help("Toggle note name overlays on the score")
-
-                    Divider()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "textformat")
+                            Text(noteNameMode.title)
+                                .font(.caption)
+                        }
+                    }
+                    .help("Toggle note name overlays on the score")
 
                     // Tempo adjustment with BPM display
                     Button(action: { showTempoPopover.toggle() }) {
@@ -388,8 +378,6 @@ struct ContentView: View {
                         }
                     }
                     .help("Adjust Tempo")
-
-                    Divider()
 
                     // Play/Pause button (moved to right-most position)
                     Button(action: { togglePlayback() }) {
@@ -471,8 +459,6 @@ struct ContentView: View {
                             }
                         }
                         .help("Play for me: select which staves to include in MIDI playback")
-
-                        Divider()
                     }
                     // Parts selector (fallback)
                     else if verovioService.availableParts.count > 1 {
@@ -493,8 +479,6 @@ struct ContentView: View {
                             Image(systemName: "music.note.list")
                         }
                         .help("Select Parts")
-
-                        Divider()
                     }
 
                     // Metronome toggle and mode menus
@@ -654,8 +638,6 @@ struct ContentView: View {
                         }
                     }
 
-                    Divider()
-
                     // Tempo adjustment with BPM display
                     Button(action: {
                         showTempoPopover.toggle()
@@ -679,8 +661,6 @@ struct ContentView: View {
                         .frame(width: 300, height: 120)
                         .padding()
                     }
-
-                    Divider()
 
                     // Play/Pause button (right-most)
                     Button(action: {
