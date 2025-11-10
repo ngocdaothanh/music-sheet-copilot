@@ -75,10 +75,8 @@ class VerovioService: ObservableObject {
         // The Verovio data folder is now bundled in the app via Copy Bundle Resources
         // It's copied from the symlink at MusicSheetsCopilot/Resources/verovio-data
         if let resourcePath = Bundle.main.path(forResource: "verovio-data", ofType: nil) {
-            print("VerovioService: Found Verovio data in app bundle: \(resourcePath)")
             self.resourcePath = resourcePath
-            let result = toolkit.setResourcePath(resourcePath)
-            print("VerovioService: setResourcePath result: \(result)")
+            toolkit.setResourcePath(resourcePath)
         } else {
             print("VerovioService: WARNING - Verovio data not found in app bundle!")
             print("   Make sure you've run: ./Scripts/setup-verovio-symlink.sh")

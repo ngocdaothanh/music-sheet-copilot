@@ -85,13 +85,6 @@ struct CombinedSVGWebViewMac: NSViewRepresentable {
         if context.coordinator.currentPages != svgPages {
             let annotatedPages = annotateSVGPages(svgPages: svgPages, timingData: timingData, midiEvents: midiPlayer.noteEvents)
             let html = createHTML(svgPages: annotatedPages, timingData: timingData, noteNameMode: noteNameMode.rawValue)
-            // Diagnostic logging: print a short snippet and counts of injected attributes so we can confirm annotation
-            do {
-                let snippet = String(html.prefix(2048))
-                let dataMidiCount = html.components(separatedBy: "data-midi=").count - 1
-                let dataNoteNameCount = html.components(separatedBy: "data-note-name=").count - 1
-                print("[DEBUG] Annotated HTML snippet (first 2KB):\n\(snippet)\n---\n[data-midi] count: \(dataMidiCount), [data-note-name] count: \(dataNoteNameCount)")
-            }
             webView.loadHTMLString(html, baseURL: nil)
             context.coordinator.currentPages = svgPages
         }
@@ -693,11 +686,6 @@ struct CombinedSVGWebViewiOS: UIViewRepresentable {
         if context.coordinator.currentPages != svgPages {
             let annotatedPages = annotateSVGPages(svgPages: svgPages, timingData: timingData, midiEvents: midiPlayer?.noteEvents ?? [])
             let html = createHTML(svgPages: annotatedPages, timingData: timingData, noteNameMode: noteNameMode.rawValue)
-            // Diagnostic logging: print a short snippet and counts of injected attributes so we can confirm annotation
-            let snippet = String(html.prefix(2048))
-            let dataMidiCount = html.components(separatedBy: "data-midi=").count - 1
-            let dataNoteNameCount = html.components(separatedBy: "data-note-name=").count - 1
-            print("[DEBUG] Annotated HTML snippet (first 2KB):\n\(snippet)\n---\n[data-midi] count: \(dataMidiCount), [data-note-name] count: \(dataNoteNameCount)")
             webView.loadHTMLString(html, baseURL: nil)
             context.coordinator.currentPages = svgPages
         }
