@@ -1035,11 +1035,9 @@ struct ContentView: View {
             // This ensures audio follows the user's "Play for me" selection (including empty selection -> no audio).
             let _ = verovioService.getMIDI() // ensure MIDI was generated internally if needed
 
-            // Initialize 'Play for me' selection: default to all available staves for the loaded score.
+            // Initialize 'Play for me' selection: always enable all available staves for the loaded score.
             let allStaveKeys: Set<String> = Set(verovioService.availableStaves.map { (partId, staffNumber, _) in "\(partId)-\(staffNumber)" })
-            if selectedStavesForPlayback.isEmpty {
-                selectedStavesForPlayback = allStaveKeys
-            }
+            selectedStavesForPlayback = allStaveKeys
 
             // Set metronome BPM from VerovioService if available
             let bpm = verovioService.getTempoBPM() ?? 120.0
