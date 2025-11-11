@@ -91,6 +91,9 @@ struct ContentView: View {
                             Button("Finger Exercise 7") {
                                 loadDemoFile(named: "fingure_excercise7")
                             }
+                            Button("Finger Exercise 9") {
+                                loadDemoFile(named: "fingure_excercise9")
+                            }
                         } label: {
                             Text("Load Demo")
                         }
@@ -182,6 +185,9 @@ struct ContentView: View {
                         }
                         Button("Finger Exercise 7") {
                             loadDemoFile(named: "fingure_excercise7")
+                        }
+                        Button("Finger Exercise 9") {
+                            loadDemoFile(named: "fingure_excercise9")
                         }
                     } label: {
                         Text("Demo")
@@ -454,6 +460,9 @@ struct ContentView: View {
                         }
                         Button("Finger Exercise 7") {
                             loadDemoFile(named: "fingure_excercise7")
+                        }
+                        Button("Finger Exercise 9") {
+                            loadDemoFile(named: "fingure_excercise9")
                         }
                     } label: {
                         Text("Demo")
