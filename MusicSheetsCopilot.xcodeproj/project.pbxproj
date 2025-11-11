@@ -24,6 +24,7 @@
 		F41359D72EC10A360061A20E /* NoteNameMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = F41359D62EC10A360061A20E /* NoteNameMode.swift */; };
 		F41359DA2EC1B3560061A20E /* fingure_excercise1.xml in Resources */ = {isa = PBXBuildFile; fileRef = F41359D82EC1B3560061A20E /* fingure_excercise1.xml */; };
 		F41359DC2EC213B40061A20E /* fingure_excercise3.xml in Resources */ = {isa = PBXBuildFile; fileRef = F41359DB2EC213B40061A20E /* fingure_excercise3.xml */; };
+		F41359DE2EC368F90061A20E /* fingure_excercise4.xml in Resources */ = {isa = PBXBuildFile; fileRef = F41359DD2EC368F90061A20E /* fingure_excercise4.xml */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -56,6 +57,7 @@
 		F41359D62EC10A360061A20E /* NoteNameMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteNameMode.swift; sourceTree = "<group>"; };
 		F41359D82EC1B3560061A20E /* fingure_excercise1.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = fingure_excercise1.xml; sourceTree = "<group>"; };
 		F41359DB2EC213B40061A20E /* fingure_excercise3.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = fingure_excercise3.xml; sourceTree = "<group>"; };
+		F41359DD2EC368F90061A20E /* fingure_excercise4.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = fingure_excercise4.xml; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -151,6 +153,7 @@
 			children = (
 				F41359D82EC1B3560061A20E /* fingure_excercise1.xml */,
 				F41359DB2EC213B40061A20E /* fingure_excercise3.xml */,
+				F41359DD2EC368F90061A20E /* fingure_excercise4.xml */,
 			);
 			path = finger_excercises;
 			sourceTree = "<group>";
@@ -254,6 +257,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F41359DE2EC368F90061A20E /* fingure_excercise4.xml in Resources */,
 				E1A005 /* Assets.xcassets in Resources */,
 				F41359DA2EC1B3560061A20E /* fingure_excercise1.xml in Resources */,
 				F41359DC2EC213B40061A20E /* fingure_excercise3.xml in Resources */,
