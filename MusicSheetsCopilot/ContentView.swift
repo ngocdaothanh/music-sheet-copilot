@@ -100,6 +100,9 @@ struct ContentView: View {
                             Button("Mary Had a Little Lamb") {
                                 loadDemoFile(named: "mary_had_a_little_lamb")
                             }
+                               Button("Happy Birthday to You") {
+                                   loadDemoFile(named: "happy_birthday_to_you")
+                               }
                                Button("Ode to Joy") {
                                    loadDemoFile(named: "ode_to_joy")
                                }
@@ -204,6 +207,9 @@ struct ContentView: View {
                         Button("Mary Had a Little Lamb") {
                             loadDemoFile(named: "mary_had_a_little_lamb")
                         }
+                           Button("Happy Birthday to You") {
+                               loadDemoFile(named: "happy_birthday_to_you")
+                           }
                            Button("Ode to Joy") {
                                loadDemoFile(named: "ode_to_joy")
                            }
@@ -488,6 +494,9 @@ struct ContentView: View {
                         Button("Mary Had a Little Lamb") {
                             loadDemoFile(named: "mary_had_a_little_lamb")
                         }
+                           Button("Happy Birthday to You") {
+                               loadDemoFile(named: "happy_birthday_to_you")
+                           }
                            Button("Ode to Joy") {
                                loadDemoFile(named: "ode_to_joy")
                            }

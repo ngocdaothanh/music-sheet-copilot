@@ -32,6 +32,7 @@
 		F41359E82EC4B1270061A20E /* fingure_excercise8.xml in Resources */ = {isa = PBXBuildFile; fileRef = F41359E72EC4B1270061A20E /* fingure_excercise8.xml */; };
 		F4E8503A2EC5FB4D002CD2E2 /* mary_had_a_little_lamb.xml in Resources */ = {isa = PBXBuildFile; fileRef = F4E850382EC5FB4D002CD2E2 /* mary_had_a_little_lamb.xml */; };
 		F4E8503D2EC604A0002CD2E2 /* ode_to_joy.xml in Resources */ = {isa = PBXBuildFile; fileRef = F4E8503C2EC604A0002CD2E2 /* ode_to_joy.xml */; };
+		F4E850402EC60667002CD2E2 /* happy_birthday_to_you.xml in Resources */ = {isa = PBXBuildFile; fileRef = F4E8503E2EC60667002CD2E2 /* happy_birthday_to_you.xml */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -72,6 +73,7 @@
 		F41359E72EC4B1270061A20E /* fingure_excercise8.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = fingure_excercise8.xml; sourceTree = "<group>"; };
 		F4E850382EC5FB4D002CD2E2 /* mary_had_a_little_lamb.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = mary_had_a_little_lamb.xml; sourceTree = "<group>"; };
 		F4E8503C2EC604A0002CD2E2 /* ode_to_joy.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = ode_to_joy.xml; sourceTree = "<group>"; };
+		F4E8503E2EC60667002CD2E2 /* happy_birthday_to_you.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = happy_birthday_to_you.xml; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -156,6 +158,7 @@
 			children = (
 				F41359D92EC1B3560061A20E /* finger_excercises */,
 				F4E850392EC5FB4D002CD2E2 /* stage1 */,
+				F4E8503F2EC60667002CD2E2 /* stage3 */,
 				F4E8503B2EC60469002CD2E2 /* stage4 */,
 				73716DB82EBBB43A00645726 /* verovio-data */,
 			);
@@ -193,6 +196,14 @@
 				7306849C2EBA1C7B001BCE5B /* fur_elise.xml */,
 			);
 			path = stage4;
+			sourceTree = "<group>";
+		};
+		F4E8503F2EC60667002CD2E2 /* stage3 */ = {
+			isa = PBXGroup;
+			children = (
+				F4E8503E2EC60667002CD2E2 /* happy_birthday_to_you.xml */,
+			);
+			path = stage3;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -303,6 +314,7 @@
 				F4E8503A2EC5FB4D002CD2E2 /* mary_had_a_little_lamb.xml in Resources */,
 				F41359E02EC36C4D0061A20E /* fingure_excercise5.xml in Resources */,
 				73716DB92EBBB43A00645726 /* verovio-data in Resources */,
+				F4E850402EC60667002CD2E2 /* happy_birthday_to_you.xml in Resources */,
 				F41359E42EC370960061A20E /* fingure_excercise7.xml in Resources */,
 				7306849D2EBA1C7B001BCE5B /* fur_elise.xml in Resources */,
 				E1A013 /* twinkle_twinkle.xml in Resources */,
