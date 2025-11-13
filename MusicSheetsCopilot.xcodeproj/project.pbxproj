@@ -30,6 +30,7 @@
 		F41359E42EC370960061A20E /* fingure_excercise7.xml in Resources */ = {isa = PBXBuildFile; fileRef = F41359E32EC370960061A20E /* fingure_excercise7.xml */; };
 		F41359E62EC3734E0061A20E /* fingure_excercise9.xml in Resources */ = {isa = PBXBuildFile; fileRef = F41359E52EC3734E0061A20E /* fingure_excercise9.xml */; };
 		F41359E82EC4B1270061A20E /* fingure_excercise8.xml in Resources */ = {isa = PBXBuildFile; fileRef = F41359E72EC4B1270061A20E /* fingure_excercise8.xml */; };
+		F4E8503A2EC5FB4D002CD2E2 /* mary_had_a_little_lamb.xml in Resources */ = {isa = PBXBuildFile; fileRef = F4E850382EC5FB4D002CD2E2 /* mary_had_a_little_lamb.xml */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -68,6 +69,7 @@
 		F41359E32EC370960061A20E /* fingure_excercise7.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = fingure_excercise7.xml; sourceTree = "<group>"; };
 		F41359E52EC3734E0061A20E /* fingure_excercise9.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = fingure_excercise9.xml; sourceTree = "<group>"; };
 		F41359E72EC4B1270061A20E /* fingure_excercise8.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = fingure_excercise8.xml; sourceTree = "<group>"; };
+		F4E850382EC5FB4D002CD2E2 /* mary_had_a_little_lamb.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = mary_had_a_little_lamb.xml; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -151,6 +153,7 @@
 			isa = PBXGroup;
 			children = (
 				F41359D92EC1B3560061A20E /* finger_excercises */,
+				F4E850392EC5FB4D002CD2E2 /* stage1 */,
 				73716DB82EBBB43A00645726 /* verovio-data */,
 				7306849C2EBA1C7B001BCE5B /* fur_elise.xml */,
 				E1A014 /* twinkle_twinkle.xml */,
@@ -171,6 +174,14 @@
 				F41359E52EC3734E0061A20E /* fingure_excercise9.xml */,
 			);
 			path = finger_excercises;
+			sourceTree = "<group>";
+		};
+		F4E850392EC5FB4D002CD2E2 /* stage1 */ = {
+			isa = PBXGroup;
+			children = (
+				F4E850382EC5FB4D002CD2E2 /* mary_had_a_little_lamb.xml */,
+			);
+			path = stage1;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -277,6 +288,7 @@
 				F41359DA2EC1B3560061A20E /* fingure_excercise1.xml in Resources */,
 				F41359E82EC4B1270061A20E /* fingure_excercise8.xml in Resources */,
 				F41359DC2EC213B40061A20E /* fingure_excercise3.xml in Resources */,
+				F4E8503A2EC5FB4D002CD2E2 /* mary_had_a_little_lamb.xml in Resources */,
 				F41359E02EC36C4D0061A20E /* fingure_excercise5.xml in Resources */,
 				73716DB92EBBB43A00645726 /* verovio-data in Resources */,
 				F41359E42EC370960061A20E /* fingure_excercise7.xml in Resources */,

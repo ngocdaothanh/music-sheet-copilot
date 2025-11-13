@@ -97,6 +97,9 @@ struct ContentView: View {
                             Button("Finger Exercise 9") {
                                 loadDemoFile(named: "fingure_excercise9")
                             }
+                            Button("Mary Had a Little Lamb") {
+                                loadDemoFile(named: "mary_had_a_little_lamb")
+                            }
                         } label: {
                             Text("Load Demo")
                         }
@@ -194,6 +197,9 @@ struct ContentView: View {
                         }
                         Button("Finger Exercise 9") {
                             loadDemoFile(named: "fingure_excercise9")
+                        }
+                        Button("Mary Had a Little Lamb") {
+                            loadDemoFile(named: "mary_had_a_little_lamb")
                         }
                     } label: {
                         Text("Demo")
@@ -472,6 +478,9 @@ struct ContentView: View {
                         }
                         Button("Finger Exercise 9") {
                             loadDemoFile(named: "fingure_excercise9")
+                        }
+                        Button("Mary Had a Little Lamb") {
+                            loadDemoFile(named: "mary_had_a_little_lamb")
                         }
                     } label: {
                         Text("Demo")
